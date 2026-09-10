@@ -14,8 +14,9 @@ from other people, and react to DocSpring events as they happen.
 Follow the [community nodes installation guide](https://docs.n8n.io/integrations/community-nodes/installation/)
 and install `@docspring/n8n-nodes-docspring`.
 
-> **Status:** built and validated against the live DocSpring API; passes the n8n
-> node linter. Pending npm publish + n8n verified-community-node review.
+> **Status:** published to npm as
+> [`@docspring/n8n-nodes-docspring`](https://www.npmjs.com/package/@docspring/n8n-nodes-docspring).
+> Pending submission to n8n's verified-community-node program.
 
 ## Credentials
 

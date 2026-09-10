@@ -145,5 +145,5 @@ loop, and pagination.
   returned the Demo PDF template. Credential injection + execute() + live API call
   all work end-to-end inside n8n.
 
-Repo: `github.com/DocSpring/n8n_integration`. Next: publish to npm + submit for
-n8n verified-community-node review.
+Repo: `github.com/DocSpring/n8n_integration`. **Published to npm as
+`@docspring/n8n-nodes-docspring` v0.1.0.** Next: submit for n8n verified-community-node review.
