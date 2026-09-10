@@ -5,7 +5,9 @@ import type {
 	INodeTypeDescription,
 	IWebhookFunctions,
 	IWebhookResponseData,
+	JsonObject,
 } from 'n8n-workflow';
+import { NodeApiError, NodeConnectionTypes } from 'n8n-workflow';
 
 import { docSpringApiRequest, flattenDelivery } from './GenericFunctions';
 
@@ -29,14 +31,14 @@ export class DocSpringTrigger implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'DocSpring Trigger',
 		name: 'docSpringTrigger',
-		icon: 'file:docspring.svg',
+		icon: { light: 'file:docspring.svg', dark: 'file:docspring.dark.svg' },
 		group: ['trigger'],
 		version: 1,
 		subtitle: '={{$parameter["events"].join(", ")}}',
 		description: 'Starts a workflow when a DocSpring event occurs',
 		defaults: { name: 'DocSpring Trigger' },
 		inputs: [],
-		outputs: ['main'],
+		outputs: [NodeConnectionTypes.Main],
 		credentials: [{ name: 'docSpringApi', required: true }],
 		webhooks: [
 			{
@@ -119,7 +121,11 @@ export class DocSpringTrigger implements INodeType {
 							`/webhooks/${webhookData.webhookUid}`,
 						);
 					} catch (error) {
-						// A 404 (already deleted) is fine — deactivation must always succeed.
+						// A 404 means the webhook was already removed — that's fine. Surface
+						// anything else instead of hiding it.
+						if ((error as NodeApiError).httpCode !== '404') {
+							throw new NodeApiError(this.getNode(), error as JsonObject);
+						}
 					}
 					delete webhookData.webhookUid;
 				}

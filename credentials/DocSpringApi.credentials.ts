@@ -1,4 +1,5 @@
 import type {
+	Icon,
 	IAuthenticateGeneric,
 	ICredentialTestRequest,
 	ICredentialType,
@@ -10,7 +11,8 @@ export class DocSpringApi implements ICredentialType {
 
 	displayName = 'DocSpring API';
 
-	// eslint-disable-next-line n8n-nodes-base/cred-class-field-documentation-url-miscased
+	icon: Icon = { light: 'file:docspring.svg', dark: 'file:docspring.dark.svg' };
+
 	documentationUrl = 'https://docspring.com/docs';
 
 	properties: INodeProperties[] = [

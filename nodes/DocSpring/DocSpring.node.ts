@@ -6,9 +6,10 @@ import type {
 	INodePropertyOptions,
 	INodeType,
 	INodeTypeDescription,
+	JsonObject,
 	ResourceMapperFields,
 } from 'n8n-workflow';
-import { NodeOperationError } from 'n8n-workflow';
+import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
 import {
 	docSpringApiRequest,
@@ -20,15 +21,15 @@ export class DocSpring implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'DocSpring',
 		name: 'docSpring',
-		icon: 'file:docspring.svg',
+		icon: { light: 'file:docspring.svg', dark: 'file:docspring.dark.svg' },
 		group: ['output'],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
 		description: 'Generate, combine, and sign PDFs with DocSpring',
 		defaults: { name: 'DocSpring' },
 		usableAsTool: true,
-		inputs: ['main'],
-		outputs: ['main'],
+		inputs: [NodeConnectionTypes.Main],
+		outputs: [NodeConnectionTypes.Main],
 		credentials: [{ name: 'docSpringApi', required: true }],
 		properties: [
 			{
@@ -623,7 +624,7 @@ export class DocSpring implements INodeType {
 					returnData.push({ json: { error: (error as Error).message }, pairedItem: i });
 					continue;
 				}
-				throw error;
+				throw new NodeApiError(this.getNode(), error as JsonObject);
 			}
 		}
 
@@ -670,14 +671,14 @@ async function getTemplates(
 ): Promise<IDataObject[]> {
 	const results: IDataObject[] = [];
 	let page = 1;
-	// eslint-disable-next-line no-constant-condition
-	while (true) {
+	let hasMore = true;
+	while (hasMore) {
 		const qs: IDataObject = { per_page: 50, page };
 		if (query) qs.query = query;
 		const batch = (await docSpringApiRequest.call(this, 'GET', '/templates', {}, qs)) as IDataObject[];
 		const list = Array.isArray(batch) ? batch : [];
 		results.push(...list);
-		if (list.length < 50 || results.length >= limit) break;
+		hasMore = list.length >= 50 && results.length < limit;
 		page += 1;
 	}
 	return results.slice(0, limit === Infinity ? undefined : limit);
