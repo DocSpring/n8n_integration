@@ -1,0 +1,60 @@
+{
+  "name": "n8n-nodes-docspring",
+  "version": "0.1.0",
+  "description": "n8n community node for DocSpring — generate, combine, and sign PDFs from your templates.",
+  "keywords": [
+    "n8n-community-node-package",
+    "docspring",
+    "pdf",
+    "documents",
+    "esignature"
+  ],
+  "license": "MIT",
+  "homepage": "https://docspring.com",
+  "author": {
+    "name": "DocSpring",
+    "email": "support@docspring.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DocSpring/n8n_integration.git"
+  },
+  "engines": {
+    "node": ">=20.15"
+  },
+  "main": "index.js",
+  "scripts": {
+    "build": "npx rimraf dist && tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes credentials --write",
+    "lint": "eslint nodes credentials package.json",
+    "lintfix": "eslint nodes credentials package.json --fix",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/DocSpringApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/DocSpring/DocSpring.node.js",
+      "dist/nodes/DocSpring/DocSpringTrigger.node.js"
+    ]
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "devDependencies": {
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "gulp": "^5.0.0",
+    "n8n-workflow": "*",
+    "prettier": "^3.3.3",
+    "rimraf": "^5.0.10",
+    "typescript": "^5.6.2"
+  }
+}
