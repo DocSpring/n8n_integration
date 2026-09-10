@@ -14,6 +14,9 @@ from other people, and react to DocSpring events as they happen.
 Follow the [community nodes installation guide](https://docs.n8n.io/integrations/community-nodes/installation/)
 and install `n8n-nodes-docspring`.
 
+> **Status:** built and validated against the live DocSpring API; passes the n8n
+> node linter. Pending npm publish + n8n verified-community-node review.
+
 ## Credentials
 
 You need a DocSpring **API token** (a Token ID and Token Secret). In the DocSpring

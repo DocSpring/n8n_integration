@@ -118,3 +118,28 @@ Events: `submission.processed` / `.failed` / `.created` / `.expired`,
   operation against the DocSpring test account (token in a local `.env`, gitignored).
 - Publish `n8n-nodes-docspring` to npm, then submit for n8n's **verified community
   node** program.
+
+## Validation status (2026-09-10)
+
+Built as a **programmatic** node (execute() + webhook trigger) — cleaner than
+declarative routing for the region/sync-host switching, the signing-link minting
+loop, and pagination.
+
+- ✅ **Compiles** clean (`tsc`) and **passes `eslint-plugin-n8n-nodes-base`** (the
+  ruleset n8n verification runs) — the linter drove the sentence-case actions,
+  alphabetized options, SVG icon, masked token fields, `['main']` inputs/outputs.
+- ✅ **Every operation validated against the live DocSpring API** via a mock-context
+  harness that runs the compiled node code: getTemplates (loadOptions), template
+  fields incl. enum→options (resourceMapper), Template search, Submission get /
+  getMany (cursor pagination), Generate PDF (sync host + data assembly), Combine
+  PDFs, Create Data Request (+ signing-link minting), Create Signing Link (type=api
+  → 1h token via qs). Note: the enum→dropdown that was blocked in Make (needs an
+  "apps edit" perm) works cleanly here via `resourceMapper`.
+- ✅ **Trigger lifecycle** verified end-to-end: create registers a DocSpring webhook
+  (v3) and stores the uid; checkExists confirms it; delete removes it; the flattener
+  produces the event-id-as-`id` shape.
+- ⏳ **Full n8n runtime smoke test** (load the linked node in a real n8n, exercise the
+  UI/resourceMapper/fixedCollection round-trip) — recommended before publishing.
+
+Repo: `github.com/DocSpring/n8n_integration`. Next: publish to npm + submit for
+n8n verified-community-node review.
