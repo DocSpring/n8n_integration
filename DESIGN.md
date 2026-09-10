@@ -147,3 +147,21 @@ loop, and pagination.
 
 Repo: `github.com/DocSpring/n8n_integration`. **Published to npm as
 `@docspring/n8n-nodes-docspring` v0.1.0.** Next: submit for n8n verified-community-node review.
+
+
+## Verification (n8n verified community node)
+
+Requirements (since 2026-05-01) and how they're met:
+- **Published with npm provenance via GitHub Actions** — `.github/workflows/publish.yml`
+  runs on `v*.*.*` tags and does `npm publish --provenance --access public`. Auth is
+  OIDC **trusted publishing** (npmjs.com → package → Trusted Publishers → GitHub
+  Actions `DocSpring/n8n_integration` / `publish.yml`); enable "Allow npm publish"
+  in Allowed Actions (default is stage-only → 403).
+- **Public source repo** — provenance is rejected for private repos; `n8n_integration`
+  (and the other integration repos) are public.
+- **Passes `@n8n/scan-community-package`** — uses the stricter `@n8n/community-nodes`
+  ESLint ruleset (NodeConnectionTypes.Main, credential icon, themed light/dark icons,
+  NodeApiError on throws). To lint locally: point eslint 9 at
+  `@n8n/eslint-plugin-community-nodes`'s `recommended` config with a TS parser.
+- v0.1.0 was a manual publish (no provenance); **v0.1.2 is the verified release** —
+  `✅ passed all security checks`. Submitted via the Creator Portal (creators.n8n.io/nodes).
