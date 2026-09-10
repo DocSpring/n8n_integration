@@ -1,4 +1,4 @@
-# n8n-nodes-docspring
+# @docspring/n8n-nodes-docspring
 
 This is an [n8n](https://n8n.io) community node. It lets you use
 [DocSpring](https://docspring.com) in your n8n workflows.
@@ -12,7 +12,7 @@ from other people, and react to DocSpring events as they happen.
 ## Installation
 
 Follow the [community nodes installation guide](https://docs.n8n.io/integrations/community-nodes/installation/)
-and install `n8n-nodes-docspring`.
+and install `@docspring/n8n-nodes-docspring`.
 
 > **Status:** built and validated against the live DocSpring API; passes the n8n
 > node linter. Pending npm publish + n8n verified-community-node review.

@@ -1,5 +1,5 @@
 {
-  "name": "n8n-nodes-docspring",
+  "name": "@docspring/n8n-nodes-docspring",
   "version": "0.1.0",
   "description": "n8n community node for DocSpring — generate, combine, and sign PDFs from your templates.",
   "keywords": [
