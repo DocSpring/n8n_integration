@@ -138,8 +138,12 @@ loop, and pagination.
 - ✅ **Trigger lifecycle** verified end-to-end: create registers a DocSpring webhook
   (v3) and stores the uid; checkExists confirms it; delete removes it; the flattener
   produces the event-id-as-`id` shape.
-- ⏳ **Full n8n runtime smoke test** (load the linked node in a real n8n, exercise the
-  UI/resourceMapper/fixedCollection round-trip) — recommended before publishing.
+- ✅ **Real n8n runtime test** — installed the built package into a live n8n 2.8.4,
+  confirmed both nodes register (correct descriptions, 22/2 params, `docSpringApi`
+  credential), created a DocSpring credential, and **executed a workflow
+  (Manual Trigger → DocSpring: Find a Template) to `status: success`** — the node
+  returned the Demo PDF template. Credential injection + execute() + live API call
+  all work end-to-end inside n8n.
 
 Repo: `github.com/DocSpring/n8n_integration`. Next: publish to npm + submit for
 n8n verified-community-node review.
