@@ -8,7 +8,7 @@ import type {
 	INodeTypeDescription,
 	ResourceMapperFields,
 } from 'n8n-workflow';
-import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
+import { NodeOperationError } from 'n8n-workflow';
 
 import {
 	docSpringApiRequest,
@@ -16,22 +16,19 @@ import {
 	schemaToResourceMapperFields,
 } from './GenericFunctions';
 
-const EXPRESSION_HINT =
-	'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>';
-
 export class DocSpring implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'DocSpring',
 		name: 'docSpring',
-		icon: 'file:docspring.png',
+		icon: 'file:docspring.svg',
 		group: ['output'],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
 		description: 'Generate, combine, and sign PDFs with DocSpring',
 		defaults: { name: 'DocSpring' },
 		usableAsTool: true,
-		inputs: [NodeConnectionTypes.Main],
-		outputs: [NodeConnectionTypes.Main],
+		inputs: ['main'],
+		outputs: ['main'],
 		credentials: [{ name: 'docSpringApi', required: true }],
 		properties: [
 			{
@@ -77,7 +74,7 @@ export class DocSpring implements INodeType {
 					{
 						name: 'Combine PDFs',
 						value: 'combine',
-						action: 'Combine PDFs',
+						action: 'Combine PDF files',
 						description: 'Merge submissions, templates, or files into one PDF',
 					},
 				],
@@ -127,10 +124,10 @@ export class DocSpring implements INodeType {
 				displayName: 'Template Name or ID',
 				name: 'templateId',
 				type: 'options',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 				typeOptions: { loadOptionsMethod: 'getTemplates' },
 				required: true,
 				default: '',
-				description: EXPRESSION_HINT,
 				displayOptions: {
 					show: { resource: ['submission', 'dataRequest'], operation: ['generatePdf', 'create'] },
 				},
@@ -213,18 +210,18 @@ export class DocSpring implements INodeType {
 						description: 'Custom metadata stored with the submission (JSON object)',
 					},
 					{
-						displayName: 'Test',
-						name: 'test',
-						type: 'boolean',
-						default: false,
-						description: 'Whether to generate a free, watermarked test PDF',
-					},
-					{
 						displayName: 'Template Version',
 						name: 'version',
 						type: 'string',
 						default: '',
 						description: 'A specific published version, or "draft"',
+					},
+					{
+						displayName: 'Test',
+						name: 'test',
+						type: 'boolean',
+						default: false,
+						description: 'Whether to generate a free, watermarked test PDF',
 					},
 				],
 			},
@@ -303,10 +300,10 @@ export class DocSpring implements INodeType {
 								name: 'type',
 								type: 'options',
 								options: [
-									{ name: 'Submission', value: 'submission' },
-									{ name: 'Template', value: 'template' },
 									{ name: 'Combined Submission', value: 'combined_submission' },
 									{ name: 'Custom File', value: 'custom_file' },
+									{ name: 'Submission', value: 'submission' },
+									{ name: 'Template', value: 'template' },
 									{ name: 'URL', value: 'url' },
 								],
 								default: 'submission',

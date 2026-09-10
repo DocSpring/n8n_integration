@@ -6,7 +6,6 @@ import type {
 	IWebhookFunctions,
 	IWebhookResponseData,
 } from 'n8n-workflow';
-import { NodeConnectionTypes } from 'n8n-workflow';
 
 import { docSpringApiRequest, flattenDelivery } from './GenericFunctions';
 
@@ -30,14 +29,14 @@ export class DocSpringTrigger implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'DocSpring Trigger',
 		name: 'docSpringTrigger',
-		icon: 'file:docspring.png',
+		icon: 'file:docspring.svg',
 		group: ['trigger'],
 		version: 1,
 		subtitle: '={{$parameter["events"].join(", ")}}',
 		description: 'Starts a workflow when a DocSpring event occurs',
 		defaults: { name: 'DocSpring Trigger' },
 		inputs: [],
-		outputs: [NodeConnectionTypes.Main],
+		outputs: ['main'],
 		credentials: [{ name: 'docSpringApi', required: true }],
 		webhooks: [
 			{

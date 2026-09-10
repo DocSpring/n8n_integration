@@ -10,6 +10,7 @@ export class DocSpringApi implements ICredentialType {
 
 	displayName = 'DocSpring API';
 
+	// eslint-disable-next-line n8n-nodes-base/cred-class-field-documentation-url-miscased
 	documentationUrl = 'https://docspring.com/docs';
 
 	properties: INodeProperties[] = [
@@ -43,6 +44,7 @@ export class DocSpringApi implements ICredentialType {
 			displayName: 'API Token ID',
 			name: 'tokenId',
 			type: 'string',
+			typeOptions: { password: true },
 			default: '',
 			description: 'From Settings → API Tokens in the DocSpring web app',
 		},
