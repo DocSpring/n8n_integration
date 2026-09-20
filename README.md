@@ -23,7 +23,7 @@ and install `@docspring/n8n-nodes-docspring`.
 You need a DocSpring **API token** (a Token ID and Token Secret). In the DocSpring
 web app, open **Settings → API Tokens**, create a token, and copy both values.
 When you add the credential in n8n, choose your **Region** (United States, Europe,
-Australia, or Self-hosted / Enterprise) and paste the Token ID and Secret.
+or Self-hosted / Enterprise) and paste the Token ID and Secret.
 Credentials are sent as HTTP Basic authentication over HTTPS.
 
 ## Operations
