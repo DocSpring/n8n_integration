@@ -26,13 +26,13 @@ nodes/DocSpring/*.ts                         # shared descriptions/helpers
 ## Credentials — `DocSpringApi`
 
 Mirrors the Zapier custom auth (`lib/regions.js`):
-- Properties: `region` (US / EU / AU / Self-hosted), `customHost`, `tokenId`,
+- Properties: `region` (US / EU / Self-hosted), `customHost`, `tokenId`,
   `tokenSecret` (password).
 - Auth: HTTP Basic — `Authorization: Basic base64(tokenId:tokenSecret)`, applied
   via the credential's `authenticate` block.
 - `test`: `GET /api/v1/authentication` (200 `{status:success}`).
 - Region → host (baseURL): US `api.docspring.com`, EU `api-eu.docspring.com`,
-  AU `api-au.docspring.com`, self-hosted → `customHost`. **Sync host** for
+  self-hosted → `customHost`. **Sync host** for
   Generate PDF / Combine PDFs: `sync.api.docspring.com` (+ region variants);
   self-hosted reuses its single origin.
 
