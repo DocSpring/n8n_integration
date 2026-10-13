@@ -86,9 +86,9 @@ Declarative routing where possible; `resourceMapper` for dynamic template fields
 A webhook trigger node with REST-hook `webhookMethods` (mirror `lib/hooks.js`):
 - **create** → `POST /api/v1/webhooks` with `{ webhook: { url:<n8n webhook url>,
   event_types:[…selected…], include_submission_data:true, version:3, name:"n8n",
-  mode, template_uids, folder_uids } }`; store `uid` in `workflowStaticData`.
-- **checkExists** → optional `GET /webhooks/{uid}`.
-- **delete** → `DELETE /api/v1/webhooks/{uid}`; tolerate 404.
+  mode } }`; store the webhook `id` in `workflowStaticData`.
+- **checkExists** → optional `GET /webhooks/{webhook_id}`.
+- **delete** → `DELETE /api/v1/webhooks/{webhook_id}`; tolerate 404.
 - **webhook()** → return the delivery flattened: top-level `id` stays the **event**
   id (stable across retries), resource id exposed as `resource_id` (parity with
   `lib/payload.js`). One node, an `events` multiSelect (all 13 events) + a `mode`
@@ -136,7 +136,7 @@ loop, and pagination.
   → 1h token via qs). Note: the enum→dropdown that was blocked in Make (needs an
   "apps edit" perm) works cleanly here via `resourceMapper`.
 - ✅ **Trigger lifecycle** verified end-to-end: create registers a DocSpring webhook
-  (v3) and stores the uid; checkExists confirms it; delete removes it; the flattener
+  (v3) and stores its id; checkExists confirms it; delete removes it; the flattener
   produces the event-id-as-`id` shape.
 - ✅ **Real n8n runtime test** — installed the built package into a live n8n 2.8.4,
   confirmed both nodes register (correct descriptions, 22/2 params, `docSpringApi`

@@ -77,12 +77,12 @@ export class DocSpringTrigger implements INodeType {
 		default: {
 			async checkExists(this: IHookFunctions): Promise<boolean> {
 				const webhookData = this.getWorkflowStaticData('node');
-				if (!webhookData.webhookUid) return false;
+				if (!webhookData.webhookId) return false;
 				try {
-					await docSpringApiRequest.call(this, 'GET', `/webhooks/${webhookData.webhookUid}`);
+					await docSpringApiRequest.call(this, 'GET', `/webhooks/${webhookData.webhookId}`);
 					return true;
 				} catch (error) {
-					delete webhookData.webhookUid;
+					delete webhookData.webhookId;
 					return false;
 				}
 			},
@@ -105,20 +105,20 @@ export class DocSpringTrigger implements INodeType {
 					webhook,
 				})) as IDataObject;
 
-				if (!response.uid) return false;
+				if (!response.id) return false;
 				const webhookData = this.getWorkflowStaticData('node');
-				webhookData.webhookUid = response.uid as string;
+				webhookData.webhookId = response.id as string;
 				return true;
 			},
 
 			async delete(this: IHookFunctions): Promise<boolean> {
 				const webhookData = this.getWorkflowStaticData('node');
-				if (webhookData.webhookUid) {
+				if (webhookData.webhookId) {
 					try {
 						await docSpringApiRequest.call(
 							this,
 							'DELETE',
-							`/webhooks/${webhookData.webhookUid}`,
+							`/webhooks/${webhookData.webhookId}`,
 						);
 					} catch (error) {
 						// A 404 means the webhook was already removed — that's fine. Surface
@@ -127,7 +127,7 @@ export class DocSpringTrigger implements INodeType {
 							throw new NodeApiError(this.getNode(), error as JsonObject);
 						}
 					}
-					delete webhookData.webhookUid;
+					delete webhookData.webhookId;
 				}
 				return true;
 			},
