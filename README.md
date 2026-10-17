@@ -11,12 +11,12 @@ from other people, and react to DocSpring events as they happen.
 
 ## Installation
 
-Follow the [community nodes installation guide](https://docs.n8n.io/integrations/community-nodes/installation/)
-and install `@docspring/n8n-nodes-docspring`.
-
-> **Status:** published to npm as
-> [`@docspring/n8n-nodes-docspring`](https://www.npmjs.com/package/@docspring/n8n-nodes-docspring).
-> Pending submission to n8n's verified-community-node program.
+DocSpring is a verified community node. In n8n Cloud or on your own server, an
+instance owner or admin can install it from the nodes panel: search for **DocSpring**
+and select it under **More from the community**. You can also follow the
+[community nodes installation guide](https://docs.n8n.io/integrations/community-nodes/installation/)
+and install [`@docspring/n8n-nodes-docspring`](https://www.npmjs.com/package/@docspring/n8n-nodes-docspring)
+from npm.
 
 ## Credentials
 
