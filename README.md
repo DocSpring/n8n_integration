@@ -36,15 +36,15 @@ Credentials are sent as HTTP Basic authentication over HTTPS.
   - **Combine PDFs** — merge submissions, templates, or files into one PDF.
 - **Template**
   - **Search** — find templates by name or ID.
-- **Data Request**
+- **Signature Request**
   - **Create** — create a submission that waits for people to fill/sign it, and
     get an authenticated signing link for each recipient.
-  - **Create Signing Link** — mint an authenticated link for a data request.
+  - **Create Signing Link** — mint an authenticated link for a signature request.
 
 ### Trigger
 
 - **DocSpring Trigger (Watch Events)** — start a workflow when a DocSpring event
-  occurs (submission processed/failed/created/expired, data request
+  occurs (submission processed/failed/created/expired, signature request
   completed/viewed, combined submission processed/failed, submission batch
   processed/failed, template created/updated/deleted).
 

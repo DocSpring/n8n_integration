@@ -60,7 +60,7 @@ Declarative routing where possible; `resourceMapper` for dynamic template fields
     `body.combined_submission`.
 - **Template**
   - **Get Many / Search** — `GET /api/v1/templates?query=…&per_page=…` (bare array).
-- **Data Request**
+- **Signature Request** (resource value `dataRequest`, kept for saved workflows)
   - **Create** — `POST /api/v1/templates/{templateId}/submissions` (standard host,
     **no wait**). `data` (optional pre-fill via resourceMapper, all optional),
     `data_requests` (recipients: email, name, fields[], auth_type default
@@ -79,7 +79,7 @@ Declarative routing where possible; `resourceMapper` for dynamic template fields
   integer→number, number→number, boolean→boolean, string→string
   (date-time/date→dateTime), `enum`→options; nested object / array-of-object →
   a JSON field (documented v1 limitation); array-of-scalar → string list.
-  Optional variant (all non-required) for Create Data Request.
+  Optional variant (all non-required) for Create Signature Request.
 
 ## Node: `DocSpringTrigger` (Watch Events)
 
@@ -103,12 +103,18 @@ Events: `submission.processed` / `.failed` / `.created` / `.expired`,
 ## Gotchas carried over
 
 - `version:3` pinned on webhook subscribe; flatten keeps event id as top-level id.
+- Naming: DocSpring calls data requests **signature requests**, so every display
+  name, action and description says "signature request". Stored values keep their
+  old names (resource `dataRequest`, parameters `dataRequests` and `dataRequestId`,
+  events `submission_data_request.*`): saved workflows hold them. The node subtitle
+  maps `dataRequest` to `signatureRequest`. New values come with the API v2 port, on a
+  new node version.
 - **Sync host + `?wait=true`** for Generate PDF / Combine PDFs; **standard host,
-  no wait** for Create Data Request.
+  no wait** for Create Signature Request.
 - The PDF-encryption field is surfaced as "Encrypt PDF With Passphrase" and mapped
   to the API's `password` (never label a non-auth field "password").
 - Self-hosted `customHost` validation (only `[scheme://]host[:port]`).
-- Combine PDFs / Data Request errors: DocSpring returns `{status:error, errors:[…]}`
+- Combine PDFs / Signature Request errors: DocSpring returns `{status:error, errors:[…]}`
   — surface `errors.join(', ')` as a clean NodeApiError.
 
 ## Testing & publishing
@@ -132,7 +138,7 @@ loop, and pagination.
   harness that runs the compiled node code: getTemplates (loadOptions), template
   fields incl. enum→options (resourceMapper), Template search, Submission get /
   getMany (cursor pagination), Generate PDF (sync host + data assembly), Combine
-  PDFs, Create Data Request (+ signing-link minting), Create Signing Link (type=api
+  PDFs, Create Signature Request (+ signing-link minting), Create Signing Link (type=api
   → 1h token via qs). Note: the enum→dropdown that was blocked in Make (needs an
   "apps edit" perm) works cleanly here via `resourceMapper`.
 - ✅ **Trigger lifecycle** verified end-to-end: create registers a DocSpring webhook

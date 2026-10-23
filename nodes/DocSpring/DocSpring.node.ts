@@ -24,7 +24,9 @@ export class DocSpring implements INodeType {
 		icon: { light: 'file:docspring.svg', dark: 'file:docspring.dark.svg' },
 		group: ['output'],
 		version: 1,
-		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
+		// The stored resource value stays `dataRequest` (saved workflows keep it); the canvas says signatureRequest.
+		subtitle:
+			'={{$parameter["operation"] + ": " + ($parameter["resource"] === "dataRequest" ? "signatureRequest" : $parameter["resource"])}}',
 		description: 'Generate, combine, and sign PDFs with DocSpring',
 		defaults: { name: 'DocSpring' },
 		usableAsTool: true,
@@ -39,7 +41,7 @@ export class DocSpring implements INodeType {
 				noDataExpression: true,
 				options: [
 					{ name: 'Combined Submission', value: 'combinedSubmission' },
-					{ name: 'Data Request', value: 'dataRequest' },
+					{ name: 'Signature Request', value: 'dataRequest' },
 					{ name: 'Submission', value: 'submission' },
 					{ name: 'Template', value: 'template' },
 				],
@@ -107,20 +109,20 @@ export class DocSpring implements INodeType {
 					{
 						name: 'Create',
 						value: 'create',
-						action: 'Create a data request',
+						action: 'Create a signature request',
 						description: 'Create a submission that waits for people to fill or sign it',
 					},
 					{
 						name: 'Create Signing Link',
 						value: 'createSigningLink',
 						action: 'Create a signing link',
-						description: 'Mint an authenticated link for a data request recipient',
+						description: 'Mint an authenticated link for a signature request recipient',
 					},
 				],
 				default: 'create',
 			},
 
-			// ─── Template picker (Generate PDF + Data Request → Create) ────
+			// ─── Template picker (Generate PDF + Signature Request → Create) ─
 			{
 				displayName: 'Template Name or ID',
 				name: 'templateId',
@@ -356,7 +358,7 @@ export class DocSpring implements INodeType {
 				],
 			},
 
-			// ─── Data Request: Create ─────────────────────────────────────
+			// ─── Signature Request: Create ────────────────────────────────
 			{
 				displayName: 'Recipients',
 				name: 'dataRequests',
@@ -419,14 +421,14 @@ export class DocSpring implements INodeType {
 				],
 			},
 
-			// ─── Data Request: Create Signing Link ────────────────────────
+			// ─── Signature Request: Create Signing Link ───────────────────
 			{
-				displayName: 'Data Request ID',
+				displayName: 'Signature Request ID',
 				name: 'dataRequestId',
 				type: 'string',
 				required: true,
 				default: '',
-				placeholder: 'drq_...',
+				placeholder: 'srq_...',
 				displayOptions: { show: { resource: ['dataRequest'], operation: ['createSigningLink'] } },
 			},
 			{

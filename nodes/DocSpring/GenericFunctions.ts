@@ -112,7 +112,7 @@ function schemaFieldType(prop: IDataObject): string {
 }
 
 // Turn a template's field schema (GET /templates/{id}/schema) into resource-mapper
-// columns. `allOptional` forces every field non-required (Create Data Request:
+// columns. `allOptional` forces every field non-required (Create Signature Request:
 // recipients fill in whatever the sender leaves blank).
 export function schemaToResourceMapperFields(
 	schema: IDataObject,
