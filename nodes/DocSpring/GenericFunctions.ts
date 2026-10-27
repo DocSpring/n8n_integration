@@ -533,33 +533,17 @@ export function schemaToResourceMapperFields(schema: unknown, allOptional = fals
 	});
 }
 
-function escapeFieldNamePart(part: string): string {
-	return part.replace(/~/g, '~0').replace(/\//g, '~1');
-}
-
-// The template's field names from its JSON Schema, as signature requests name them: nested keys are joined with
-// "/" (client/address, items/0/price).
-export function schemaFieldNames(schema: unknown): string[] {
+// The names a signer can be given to fill in, from a template's fields (GET /templates/{id}/fields): each name once,
+// in the API's order, without static fields, combined fields or @@ submission details, which take no value.
+export function signerFieldNames(fields: unknown): string[] {
 	const names: string[] = [];
-	const visit = (prop: unknown, prefix: string) => {
-		if (!isObject(prop)) {
-			names.push(prefix);
-			return;
-		}
-		if (isObject(prop.properties) && Object.keys(prop.properties).length) {
-			for (const [key, child] of Object.entries(prop.properties)) {
-				visit(child, `${prefix}/${escapeFieldNamePart(key)}`);
-			}
-			return;
-		}
-		if (Array.isArray(prop.items) && prop.items.length) {
-			(prop.items as unknown[]).forEach((child, index) => visit(child, `${prefix}/${index}`));
-			return;
-		}
-		names.push(prefix);
-	};
-	const properties = isObject(schema) && isObject(schema.properties) ? schema.properties : {};
-	for (const [key, prop] of Object.entries(properties)) visit(prop, escapeFieldNamePart(key));
+	for (const field of Array.isArray(fields) ? fields : []) {
+		if (!isObject(field)) continue;
+		const name = field.name;
+		if (typeof name !== 'string' || !name) continue;
+		if (field.static === true || field.type === 'combined' || name.startsWith('@@')) continue;
+		if (!names.includes(name)) names.push(name);
+	}
 	return names;
 }
 

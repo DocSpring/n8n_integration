@@ -71,18 +71,60 @@ describe('pickers', () => {
 		assert.equal(http.requests.length, 10);
 	});
 
-	test("the signers' field picker lists the template's field names at the chosen version", async () => {
+	test("the signers' field picker lists the names of the template's fields at the chosen version", async () => {
+		const fields = [
+			{ id: 1, name: 'first_name', type: 'string' },
+			{ id: 2, name: 'items/0/price', type: 'number' },
+			{ id: 3, name: 'first_name', type: 'string' },
+			{ id: 4, name: 'logo', type: 'image', static: true },
+			{ id: 5, name: 'full_name', type: 'combined' },
+			{ id: 6, name: '@@signature_requests/0/signed_at', type: 'date' },
+			{ id: 7, name: null, type: 'string' },
+			{ id: 8, name: 'signature', type: 'signature' },
+		];
 		const { context, http } = createLoadOptionsContext({
 			params: { templateId: TEMPLATE, templateVersion: '2.0.0' },
-			responses: [{ body: SCHEMA }],
+			responses: [{ body: { template_id: 'tpl_123', version: '2.0.0', fields } }],
 		});
 		const options = await methods.loadOptions.getTemplateFieldNames.call(context);
-		assert.equal(http.requests[0].url, 'https://api.docspring.com/api/v2/templates/tpl_123/schema');
+		assert.equal(http.requests[0].method, 'GET');
+		assert.equal(http.requests[0].url, 'https://api.docspring.com/api/v2/templates/tpl_123/fields');
 		assert.deepEqual(http.requests[0].qs, { version: '2.0.0' });
-		assert.deepEqual(
-			options.map((option) => option.value),
-			['first_name', 'start_date', 'signed_at', 'amount', 'agree', 'plan', 'client/address', 'client/a~1b'],
-		);
+		assert.deepEqual(options, [
+			{ name: 'first_name', value: 'first_name' },
+			{ name: 'items/0/price', value: 'items/0/price' },
+			{ name: 'signature', value: 'signature' },
+		]);
+	});
+
+	test("the signers' field picker reads the latest version when none is chosen", async () => {
+		const { context, http } = createLoadOptionsContext({
+			params: { templateId: TEMPLATE, templateVersion: ' ' },
+			responses: [{ body: { template_id: 'tpl_123', version: '1.0.0', fields: [{ id: 1, name: 'a' }] } }],
+		});
+		const options = await methods.loadOptions.getTemplateFieldNames.call(context);
+		assert.deepEqual(http.requests[0].qs, { version: 'latest' });
+		assert.deepEqual(options, [{ name: 'a', value: 'a' }]);
+	});
+
+	test("the signers' field picker is empty until a template is chosen", async () => {
+		const { context, http } = createLoadOptionsContext({ params: { templateId: { mode: 'list', value: '' }, templateVersion: '' } });
+		assert.deepEqual(await methods.loadOptions.getTemplateFieldNames.call(context), []);
+		assert.equal(http.requests.length, 0);
+	});
+
+	test("the signers' field picker refreshes when the template or version changes", () => {
+		for (const [operation, property] of [
+			['create', 'signers'],
+			['checkData', 'signers'],
+		]) {
+			const signers = new DocSpring().description.properties.find(
+				(p) => p.name === property && p.displayOptions.show.operation.includes(operation),
+			);
+			const fields = signers.options[0].values.find((value) => value.name === 'fields');
+			assert.equal(fields.typeOptions.loadOptionsMethod, 'getTemplateFieldNames');
+			assert.deepEqual(fields.typeOptions.loadOptionsDependsOn, ['templateId.value', 'templateVersion']);
+		}
 	});
 });
 

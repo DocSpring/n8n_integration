@@ -72,7 +72,8 @@ or the trigger. If DocSpring couldn't generate the PDF, the node fails with the 
 
 ### Signature requests
 
-Each signer needs the fields they fill in. Choose them from the template's fields, or set them with an expression.
+Each signer needs the fields they fill in. Choose them from the template's fields (at the template version you
+chose, or the latest), or set them with an expression.
 **Authentication** says how your app checked who the person is (Email Link by default); OAuth also needs an **Auth
 Provider**, such as `google`. Set **Role** (`Signer 1`, `Signer 2`, …) for every signer or for none.
 

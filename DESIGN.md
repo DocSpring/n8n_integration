@@ -102,8 +102,10 @@ that was created so the user doesn't create it twice.
   JSON Schema types map to n8n types (number, boolean, options for enums, object and array as JSON, `date-time` as
   dateTime). `format: date` fields are text whose label says `YYYY-MM-DD`, because a dateTime value would be sent as
   a date-time, which v2 rejects. Create Signature Request and Check Data make every field optional.
-- **Signers' fields**: a multi-select of the template's field names at the chosen version, from the same schema, with
-  nested keys joined by `/` (`schemaFieldNames`). v2 requires at least one per signer.
+- **Signers' fields**: a multi-select of the names from `GET /templates/{id}/fields?version=` (the chosen version, or
+  `latest` when it's empty), each once and in the API's order, without static fields, combined fields and `@@`
+  submission details (`signerFieldNames`, as in the Pipedream integration). It reloads when the template or version
+  changes. v2 requires at least one per signer.
 - **Folders**: `loadOptions` pickers over `GET /folders` (paths such as `/Contracts/Leases`). Move and Copy add
   "/ (Root)" (stored as `root`, sent as `parent_folder_id: null`).
 - **Date filters**: n8n's date picker gives a time without an offset, read in the workflow's time zone and sent as

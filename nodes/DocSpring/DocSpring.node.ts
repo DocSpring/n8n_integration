@@ -28,8 +28,8 @@ import {
 	encodeId,
 	errorText,
 	folderPath,
-	schemaFieldNames,
 	schemaToResourceMapperFields,
+	signerFieldNames,
 } from './GenericFunctions';
 import { OPERATIONS } from './operations';
 
@@ -158,10 +158,17 @@ export class DocSpring implements INodeType {
 			async getFoldersWithRoot(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				return [{ name: '/ (Root)', value: ROOT_FOLDER }, ...(await folderOptions(this))];
 			},
-			// The template's field names at the chosen version, for each signer's fields.
+			// The names of the template's fields at the chosen version (the latest when none is chosen), for each
+			// signer's fields.
 			async getTemplateFieldNames(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const schema = await templateSchema(this);
-				return schemaFieldNames(schema).map((name) => ({ name, value: name }));
+				const templateId = templateIdFromParameters(this);
+				if (!templateId) return [];
+				const response = (await docSpringApiRequest.call(this, {
+					method: 'GET',
+					path: `/templates/${encodeId(templateId, 'Template ID', this.getNode())}/fields`,
+					qs: { version: 'latest', ...templateVersionQuery(this) },
+				})) as IDataObject;
+				return signerFieldNames(response?.fields).map((name) => ({ name, value: name }));
 			},
 			// The draft's fields, for Remove Template Fields.
 			async getTemplateFieldIds(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
