@@ -33,6 +33,8 @@
 - Error messages show DocSpring's error code and message, each problem's field, the record's ID and the request ID.
   A PDF that fails to generate is an error with its reason. Test is only sent when it's on, so test API tokens work.
 - The template picker searches by name and pages through every template.
+- Checkbox fields in Template Data are Leave Blank, True or False, and start blank, so they're only sent when you set
+  them.
 - IDs are encoded in request URLs, and an ID of `.` or `..` is rejected before any request.
 
 ## 0.1.4 (2026-10-14)

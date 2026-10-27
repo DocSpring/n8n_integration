@@ -143,13 +143,50 @@ describe('template data fields', () => {
 		assert.equal(byId.start_date.displayName, 'start_date (YYYY-MM-DD)');
 		assert.equal(byId.signed_at.type, 'dateTime');
 		assert.equal(byId.amount.type, 'number');
-		assert.equal(byId.agree.type, 'boolean');
+		assert.equal(byId.agree.type, 'options');
 		assert.equal(byId.plan.type, 'options');
 		assert.deepEqual(byId.plan.options, [
 			{ name: 'basic', value: 'basic' },
 			{ name: 'pro', value: 'pro' },
 		]);
 		assert.equal(byId.client.type, 'object');
+	});
+
+	test('make checkbox (boolean) fields a Leave Blank, True or False choice', async () => {
+		const { context } = createLoadOptionsContext({ params: { templateId: TEMPLATE, templateVersion: '' }, responses: [{ body: SCHEMA }] });
+		const { fields } = await methods.resourceMapping.getTemplateFieldsOptional.call(context);
+		const agree = fields.find((field) => field.id === 'agree');
+		assert.equal(agree.type, 'options');
+		assert.deepEqual(
+			agree.options.map((option) => [option.name, option.value]),
+			[
+				['Leave Blank', ''],
+				['True', true],
+				['False', false],
+			],
+		);
+	});
+
+	// n8n's resource mapper fills in a default for every field when it adds all fields. This is getDefaultFieldValue
+	// from n8n's ResourceMapper.vue (master, October 2026): a field's defaultValue when it has one, false for a boolean
+	// field (which API v2 would treat as a prefilled value) and null (left out) for every other type.
+	function n8nDefaultFieldValue(field) {
+		if (field.defaultValue !== undefined) return field.defaultValue;
+		if (field.type === 'boolean') return false;
+		return null;
+	}
+
+	test('start blank in every mapper, so no value is sent until the user sets one', async () => {
+		for (const method of ['getTemplateFields', 'getTemplateFieldsOptional']) {
+			const { context } = createLoadOptionsContext({ params: { templateId: TEMPLATE, templateVersion: '' }, responses: [{ body: SCHEMA }] });
+			const { fields } = await methods.resourceMapping[method].call(context);
+			const defaults = Object.fromEntries(fields.map((field) => [field.id, n8nDefaultFieldValue(field)]));
+			assert.deepEqual(
+				Object.entries(defaults).filter(([, value]) => value !== null),
+				[],
+				`${method} gives these fields a default value`,
+			);
+		}
 	});
 
 	test('are all optional for signature requests', async () => {

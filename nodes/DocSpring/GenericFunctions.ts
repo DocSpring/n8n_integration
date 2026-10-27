@@ -495,7 +495,7 @@ function schemaType(prop: IDataObject): string | undefined {
 
 // Turns a template's JSON Schema (GET /templates/{id}/schema) into resource mapper fields. `allOptional` makes
 // every field optional (Create Signature Request and Check Data). Date fields are text inputs that say the format
-// API v2 takes; nested objects and lists are JSON inputs.
+// API v2 takes; checkbox fields are a Leave Blank / True / False choice; nested objects and lists are JSON inputs.
 export function schemaToResourceMapperFields(schema: unknown, allOptional = false): IDataObject[] {
 	const properties = isObject(schema) && isObject(schema.properties) ? schema.properties : {};
 	const required = new Set(isObject(schema) && Array.isArray(schema.required) ? (schema.required as string[]) : []);
@@ -519,7 +519,16 @@ export function schemaToResourceMapperFields(schema: unknown, allOptional = fals
 		} else if (type === 'integer' || type === 'number') {
 			field.type = 'number';
 		} else if (type === 'boolean') {
-			field.type = 'boolean';
+			// A checkbox. n8n's resource mapper gives a boolean field a default of false, and API v2 treats false as a
+			// prefilled value (a signer's field with one is a 422), so it's a choice that starts blank. An options field
+			// gets no default (null), and blank ("") is left out of the data.
+			field.type = 'options';
+			field.options = [
+				{ name: 'Leave Blank', value: '', description: "Don't send a value for this field" },
+				{ name: 'True', value: true },
+				{ name: 'False', value: false },
+			];
+			field.defaultValue = null;
 		} else if (type === 'object') {
 			field.type = 'object';
 		} else if (type === 'array') {

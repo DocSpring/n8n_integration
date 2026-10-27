@@ -513,6 +513,17 @@ describe('Signature Request', () => {
 		assert.equal('data_requests' in output[0], false);
 	});
 
+	test('leaves out checkbox fields left blank, and sends true and false as booleans', async () => {
+		const { requests } = await run({
+			params: createParams({
+				templateData: { mappingMode: 'defineBelow', value: { agree: '', subscribe: true, terms: false, company: 'Acme' } },
+				signingLinkType: 'none',
+			}),
+			responses: [{ statusCode: 201, body: created }],
+		});
+		assert.deepEqual(requests[0].body.data, { subscribe: true, terms: false, company: 'Acme' });
+	});
+
 	test('creates no links when Signing Links is None', async () => {
 		const { output, requests } = await run({
 			params: createParams({ signingLinkType: 'none' }),

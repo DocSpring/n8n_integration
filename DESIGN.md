@@ -99,8 +99,11 @@ that was created so the user doesn't create it twice.
 - **Template Version**: a query parameter. Operations that create or check a submission default to the latest
   published version; Get Template, Get Page Images and Template Field Get Many default to the draft.
 - **Template Data**: a resource mapper built from `GET /templates/{id}/schema?version=` (`schemaToResourceMapperFields`).
-  JSON Schema types map to n8n types (number, boolean, options for enums, object and array as JSON, `date-time` as
-  dateTime). `format: date` fields are text whose label says `YYYY-MM-DD`, because a dateTime value would be sent as
+  JSON Schema types map to n8n types (number, options for enums, object and array as JSON, `date-time` as
+  dateTime). Booleans (checkbox fields) are options too: Leave Blank (`""`), True (`true`) and False (`false`), with no
+  default. n8n's mapper gives a `boolean` field a default of `false` when it adds all fields
+  (`getDefaultFieldValue` in `ResourceMapper.vue`), and v2 treats `false` as a prefilled value, so a signer's
+  checkbox would be a 422; an `options` field gets `null`, which n8n drops. Blank values aren't sent. `format: date` fields are text whose label says `YYYY-MM-DD`, because a dateTime value would be sent as
   a date-time, which v2 rejects. Create Signature Request and Check Data make every field optional.
 - **Signers' fields**: a multi-select of the names from `GET /templates/{id}/fields?version=` (the chosen version, or
   `latest` when it's empty), each once and in the API's order, without static fields, combined fields and `@@`

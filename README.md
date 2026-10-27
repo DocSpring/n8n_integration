@@ -61,8 +61,10 @@ doesn't have API v2 yet, upgrade DocSpring, or install version 0.1.4 of this nod
 
 Generate PDF, Check Data and Create Signature Request show a field for each of the template's fields, from the
 template version you choose (the latest published version by default). Date fields take dates as `YYYY-MM-DD`; their
-names show the format. Turn on **Attempt to convert types** in the field list if your values arrive as text (such as
-`"42"` for a number field).
+names show the format. Checkbox fields are **Leave Blank** (nothing is sent), **True** or **False**; they start blank,
+so a signer can tick a checkbox you didn't set. From an expression, give `true` or `false` (not text). Turn on
+**Attempt to convert types** in the field list if your other values arrive as text (such as `"42"` for a number
+field).
 
 ### Generating PDFs
 
