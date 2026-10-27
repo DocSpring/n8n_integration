@@ -86,8 +86,9 @@ form that opened in time keeps working for 7 more days. The output adds `signing
 
 **DocSpring Trigger** starts a workflow when a DocSpring event happens. Choose any of the events (submissions,
 signature requests, combined PDFs, submission batches, templates, custom files and folders), live or test events,
-and optionally limit it to some templates. Activating the workflow creates a webhook in DocSpring; deactivating it
-deletes the webhook.
+and optionally limit it to some templates. Only submission, signature request and template events can be limited to
+templates: with template IDs set, choosing any other event stops the workflow from activating, with a message naming
+those events. Activating the workflow creates a webhook in DocSpring; deactivating it deletes the webhook.
 
 Each event is output like this, with `data` as API v2 returns the resource:
 

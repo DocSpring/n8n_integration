@@ -116,7 +116,9 @@ that was created so the user doesn't create it twice.
 - **Events**: every version 4 event except `webhook.*` (submission, signature request, combined PDF, submission
   batch, template, custom file and folder events). Options: live and/or test, template IDs, include submission data.
 - **create**: `POST /api/v2/webhooks` with `url`, `event_types`, `include_submission_data`, `name` (`n8n: <workflow>`)
-  and, when set, `mode` and `template_ids`. No `version`: webhooks created with API v2 are version 4. Only the
+  and, when set, `mode` and `template_ids`. Only `submission.*`, `signature_request.*` and `template.*` events can
+  be filtered by template (the API rejects a template-scoped webhook with any other event), so with template IDs set,
+  create fails before calling the API and names the other events. No `version`: webhooks created with API v2 are version 4. Only the
   webhook `id` is stored, in the node's static data.
 - **checkExists**: `GET /api/v2/webhooks/{id}`; true only if it exists and points at this trigger's URL. A 404
   forgets the stored ID.

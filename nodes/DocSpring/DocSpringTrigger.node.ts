@@ -8,7 +8,7 @@ import type {
 	IWebhookFunctions,
 	IWebhookResponseData,
 } from 'n8n-workflow';
-import { NodeConnectionTypes } from 'n8n-workflow';
+import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
 import {
 	PICKER_MAX_ITEMS,
@@ -44,6 +44,10 @@ export const EVENTS = [
 	{ name: 'Template Deleted', value: 'template.deleted' },
 	{ name: 'Template Updated', value: 'template.updated' },
 ];
+
+// Only these events can be limited to templates (DocSpring's TEMPLATE_SCOPABLE_RESOURCES). The API rejects a webhook
+// with template IDs that subscribes to any other event.
+const TEMPLATE_FILTERABLE_RESOURCES = ['submission', 'signature_request', 'template'];
 
 function isNotFound(error: unknown): boolean {
 	const httpCode = (error as { httpCode?: string | number | null })?.httpCode;
@@ -115,7 +119,7 @@ export class DocSpringTrigger implements INodeType {
 						typeOptions: { loadOptionsMethod: 'getTemplates' },
 						default: [],
 						description:
-							'Only receive submission, signature request and template events for these templates. Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+							"Only receive events for these templates. Works with submission, signature request and template events only: other events can't be filtered by template, so leave this empty to receive them. Choose from the list, or specify IDs using an <a href=\"https://docs.n8n.io/code/expressions/\">expression</a>.",
 					},
 				],
 			},
@@ -159,16 +163,27 @@ export class DocSpringTrigger implements INodeType {
 			// Creates a version 4 webhook with API v2 and stores only its ID.
 			async create(this: IHookFunctions): Promise<boolean> {
 				const options = (this.getNodeParameter('options', {}) as IDataObject) || {};
+				const events = this.getNodeParameter('events') as string[];
+				const templateIds = parseList(options.templateIds);
+				const unfilterable = templateIds.length
+					? events.filter((event) => !TEMPLATE_FILTERABLE_RESOURCES.includes(event.split('.')[0]))
+					: [];
+				if (unfilterable.length) {
+					const names = unfilterable.map((event) => EVENTS.find((option) => option.value === event)?.name ?? event);
+					throw new NodeOperationError(
+						this.getNode(),
+						`Template IDs only filter submission, signature request and template events. Remove the template IDs, or remove these events: ${names.join(', ')}`,
+					);
+				}
 				const body: IDataObject = {
 					url: this.getNodeWebhookUrl('default'),
-					event_types: this.getNodeParameter('events') as string[],
+					event_types: events,
 					include_submission_data: String(options.includeSubmissionData ?? true).trim().toLowerCase() !== 'false',
 				};
 				const workflowName = this.getWorkflow().name;
 				body.name = workflowName ? `n8n: ${workflowName}`.slice(0, 255) : 'n8n';
 				const mode = this.getNodeParameter('mode', 'all') as string;
 				if (mode === 'live' || mode === 'test') body.mode = mode;
-				const templateIds = parseList(options.templateIds);
 				if (templateIds.length) body.template_ids = templateIds;
 
 				const webhook = (await docSpringApiRequest.call(this, { method: 'POST', path: '/webhooks', body })) as IDataObject;

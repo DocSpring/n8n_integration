@@ -26,7 +26,8 @@
   - Folder: Get Many, Create.
 - **Trigger:** every API v2 event except webhook events, including `submission.declined`, `submission.updated`,
   `signature_request.declined`, `signature_request.updated`, `combined_pdf.expired`, `custom_file.created` and the
-  folder events. Optional template filter, and submission data can be left out. Each event is output as delivered
+  folder events. Optional template filter (for submission, signature request and template events), and submission
+  data can be left out. Each event is output as delivered
   (`id`, `event_type`, `created_at`, `data`) with `resource_type` and `resource_id`.
 - **Make an API call:** the DocSpring credential works in n8n's HTTP Request node (Predefined Credential Type).
 - Error messages show DocSpring's error code and message, each problem's field, the record's ID and the request ID.

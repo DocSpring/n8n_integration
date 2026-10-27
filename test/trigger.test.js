@@ -174,3 +174,52 @@ describe('IDs in paths', () => {
 		assert.equal(http.requests.length, 0);
 	});
 });
+
+describe('template filter', () => {
+	test('fails before creating the webhook when template IDs are set with events that templates can\'t filter', async () => {
+		const { context, http, staticData } = createHookContext({
+			params: {
+				events: ['submission.processed', 'combined_pdf.processed', 'folder.created', 'signature_request.completed'],
+				mode: 'all',
+				options: { templateIds: ['tpl_1'] },
+			},
+			responses: [{ statusCode: 201, body: { id: 'whk_1' } }],
+		});
+		await assert.rejects(hooks.create.call(context), (error) => {
+			assert.equal(
+				error.message,
+				'Template IDs only filter submission, signature request and template events. Remove the template IDs, or remove these events: Combined PDF Processed, Folder Created',
+			);
+			return true;
+		});
+		assert.equal(http.requests.length, 0);
+		assert.deepEqual(staticData, {});
+	});
+
+	test('allows template IDs with submission, signature request and template events, and any events without them', async () => {
+		const scoped = createHookContext({
+			params: {
+				events: ['submission.created', 'signature_request.viewed', 'template.updated'],
+				mode: 'all',
+				options: { templateIds: 'tpl_1, tpl_2' },
+			},
+			responses: [{ statusCode: 201, body: { id: 'whk_1' } }],
+		});
+		assert.equal(await hooks.create.call(scoped.context), true);
+		assert.deepEqual(scoped.http.requests[0].body.template_ids, ['tpl_1', 'tpl_2']);
+
+		const unscoped = createHookContext({
+			params: { events: ['combined_pdf.processed', 'folder.created'], mode: 'all', options: { templateIds: [] } },
+			responses: [{ statusCode: 201, body: { id: 'whk_2' } }],
+		});
+		assert.equal(await hooks.create.call(unscoped.context), true);
+		assert.equal('template_ids' in unscoped.http.requests[0].body, false);
+	});
+
+	test("the option's help says which events it filters", () => {
+		const options = new DocSpringTrigger().description.properties.find((property) => property.name === 'options');
+		const templateIds = options.options.find((option) => option.name === 'templateIds');
+		assert.match(templateIds.description, /submission, signature request and template events/);
+		assert.match(templateIds.description, /can't be filtered by template/);
+	});
+});
