@@ -1,173 +1,145 @@
-# DocSpring n8n Node — Design Notes
+# DocSpring n8n node: design notes
 
-Port spec for the DocSpring **n8n community node** (`n8n-nodes-docspring`).
-Companion to `README.md`. Source of truth for behavior is the Zapier integration
-(`DocSpring/zapier_integration`) and the Make app (`DocSpring/make_integration`);
-this doc records what carries over and what changes because n8n nodes are
-**TypeScript** (declarative routing + a few programmatic methods), packaged as an
-npm community node.
+How the DocSpring n8n community node (`@docspring/n8n-nodes-docspring`) is built, and why. Users' docs are in
+`README.md`; changes by version in `CHANGELOG.md`. The node calls DocSpring API v2 only. The v2 contract (paths,
+parameters, bodies, responses) is the API v2 OpenAPI spec in the DocSpring repo (`openapi/v2/openapi.json`), and the
+same operation set and behaviour are shared with the Zapier, Make, Node-RED, Pipedream and Bubble integrations
+(Shortcut story sc-5981).
 
 ## Package shape
 
-An npm package named **`n8n-nodes-docspring`** (n8n discovers community packages
-by the `n8n-nodes-*` name + the `n8n-community-node-package` keyword). Compiles TS
-→ `dist/`; the `n8n` field in package.json points at the built credential + node
-files. Icon: `nodes/DocSpring/docspring.png` (copied from the Make app logo),
-copied to `dist/` by `gulp build:icons`.
+An npm package (n8n finds community packages by the `n8n-community-node-package` keyword). TypeScript compiles to
+`dist/`; the `n8n` field in `package.json` points at the built credential and nodes. Icons are copied to `dist/` by
+`gulp build:icons`.
 
 ```
-credentials/DocSpringApi.credentials.ts
-nodes/DocSpring/DocSpring.node.ts           # actions + searches
-nodes/DocSpring/DocSpringTrigger.node.ts    # Watch Events (webhook trigger)
-nodes/DocSpring/docspring.png
-nodes/DocSpring/*.ts                         # shared descriptions/helpers
+credentials/DocSpringApi.credentials.ts      # region, token, Basic auth + User-Agent, connection test
+nodes/DocSpring/DocSpring.node.ts            # the action node: description, pickers, execute loop
+nodes/DocSpring/DocSpringTrigger.node.ts     # webhook trigger
+nodes/DocSpring/operations.ts                # one function per resource:operation (builds and sends the request)
+nodes/DocSpring/GenericFunctions.ts          # hosts, the request helper, errors, paging, input conversion, schemas
+nodes/DocSpring/descriptions/*.ts            # parameters per resource (SharedDescription.ts for shared ones)
+nodes/DocSpring/version.ts                   # package version (User-Agent) and the API v1 fallback message
+test/*.test.js                               # node --test against dist/, with a mock n8n context
 ```
 
-## Credentials — `DocSpringApi`
+The node is programmatic (`execute()`), not declarative: the region and sync-host switching, signing links after a
+signature request, failure-state checks and cursor paging are simpler as code.
 
-Mirrors the Zapier custom auth (`lib/regions.js`):
-- Properties: `region` (US / EU / Self-hosted), `customHost`, `tokenId`,
-  `tokenSecret` (password).
-- Auth: HTTP Basic — `Authorization: Basic base64(tokenId:tokenSecret)`, applied
-  via the credential's `authenticate` block.
-- `test`: `GET /api/v1/authentication` (200 `{status:success}`).
-- Region → host (baseURL): US `api.docspring.com`, EU `api-eu.docspring.com`,
-  self-hosted → `customHost`. **Sync host** for
-  Generate PDF / Combine PDFs: `sync.api.docspring.com` (+ region variants);
-  self-hosted reuses its single origin.
+## Versions
 
-## Node: `DocSpring` (actions + searches)
+The node's `version` is 1. Version 1.0.0 of the package replaced the API v1 node in place, without a
+`VersionedNodeType`, because nobody had saved workflows with 0.1.x. A later change that breaks saved workflows needs
+a new node version (n8n keeps each saved node's `typeVersion`).
 
-Declarative routing where possible; `resourceMapper` for dynamic template fields.
-`requestDefaults.baseURL` resolved from the `region` credential.
+## Credential: `docSpringApi`
 
-### Resources & operations
+- Properties: `region` (`us`, `eu`, `self_hosted`), `customHost` (self-hosted only), `tokenId`, `tokenSecret`.
+- `authenticate` (generic): HTTP Basic with the token ID and secret, and `User-Agent: docspring-n8n/<version>`. n8n
+  applies it to every request made with the credential, including from the HTTP Request node ("Predefined Credential
+  Type"), which is how users make API calls this node doesn't have. DocSpring's API logs count users by User-Agent.
+- `test`: `GET /api/v2/authentication` (`{"authenticated": true}`). A 404 means a self-hosted server without API v2,
+  and the test says so (upgrade, or use 0.1.4).
 
-- **Submission**
-  - **Generate PDF** — `POST {sync}/api/v1/templates/{templateId}/submissions?wait=true`.
-    Template picker via `loadOptions` (list templates); per-template fields via a
-    `resourceMapper` (schema from `GET /templates/{id}/schema`). Body: `data`
-    (from mapped fields), `test`, `metadata`, `password` (from a **PDF passphrase**
-    field — never keyed "password" in the UI), `editable`, `expires_in`, `version`.
-    Returns `body.submission`.
-  - **Get** — `GET /api/v1/submissions/{id}` (single).
-  - **Get Many** — `GET /api/v1/submissions?limit=…&type=…&created_after/before` →
-    `body.submissions`.
-- **Combined Submission**
-  - **Combine PDFs** — `POST {sync}/api/v1/combined_submissions?wait=true`.
-    `source_pdfs` fixedCollection (`type` submission|template|custom_file, `id`,
-    optional `template_version`), `metadata`, `password`, `expires_in`. Returns
-    `body.combined_submission`.
-- **Template**
-  - **Get Many / Search** — `GET /api/v1/templates?query=…&per_page=…` (bare array).
-- **Signature Request** (resource value `dataRequest`, kept for saved workflows)
-  - **Create** — `POST /api/v1/templates/{templateId}/submissions` (standard host,
-    **no wait**). `data` (optional pre-fill via resourceMapper, all optional),
-    `data_requests` (recipients: email, name, fields[], auth_type default
-    `email_link`), plus control fields. Then, programmatically, mint a 30-day
-    `email` token per recipient (`POST /data_requests/{id}/tokens {type:email}`)
-    and attach `signing_url` (+ `first_signing_url`). Returns the submission
-    (`waiting_for_data_requests`) enriched with signing links.
-  - **Create Signing Link** — `POST /api/v1/data_requests/{id}/tokens` (`type`
-    email|api). Returns the token + `data_request_url`.
+## Requests
 
-### Dynamic data (n8n equivalents of Make RPCs / Zapier dynamic fields)
+`docSpringApiRequest()` in `GenericFunctions.ts` sends every request:
 
-- `loadOptions.getTemplates` → template dropdown (`GET /templates?per_page=100`).
-- `resourceMapping.getTemplateFields` → `GET /templates/{id}/schema` → columns.
-  JSON-Schema (draft-04) → n8n field types (mirror `lib/templates.js`):
-  integer→number, number→number, boolean→boolean, string→string
-  (date-time/date→dateTime), `enum`→options; nested object / array-of-object →
-  a JSON field (documented v1 limitation); array-of-scalar → string list.
-  Optional variant (all non-required) for Create Signature Request.
+- **Hosts.** US `api.docspring.com`, EU `api-eu.docspring.com`; operations that make a file (Generate PDF, batch
+  Create, Combine PDFs, template Create and Replace PDF, Generate Files) use the sync hosts
+  (`sync.api.docspring.com`, `sync.api-eu.docspring.com`) with `?wait=true`, or `wait=false` when the user turns
+  waiting off. Self-hosted uses its custom host for both (`https://` added when there's no scheme). Path prefix
+  `/api/v2`.
+- **Bodies** are flat JSON with only the properties the operation has (v2 rejects unknown ones). `version` and `wait`
+  are query parameters. `test` is only sent when it's true (v2 rejects `test: false` from a test token). Booleans and
+  integers that arrive as strings from expressions are converted, or rejected with a message. Optional values left
+  empty are left out. Template data from the resource mapper is sent as the user mapped it, minus empty values.
+- **Errors.** Requests use `ignoreHttpStatusErrors`, so the helper sees the response and throws a `NodeApiError`:
+  `DocSpring API error <status> <code>: <message>` as the message; one line per detail (`<pointer or parameter>:
+  <message>`), the record ID (`Submission: sub_…`, or the batch, combined PDF or template) and `Request ID: req_…`
+  as the description. A `polling_timeout` says how to get the record later. continueOnFail outputs both parts.
+- **Failure states.** A create that returns a record in a failure state (a submission's `error`, `syntax_error`,
+  `image_download_failed` or `image_processing_failed`; a combined PDF's or batch's `error`; a template PDF's
+  `password_required`, `malformed_pdf`, `unknown_error` or `download_failed`; a generated file's `error`) fails with
+  the state, `error_message` and the record ID.
+- **Lists** page with `limit` (up to 100) and `cursor` until Limit or every item (Return All). Pickers stop at 1,000.
 
-## Node: `DocSpringTrigger` (Watch Events)
+## Operations
 
-A webhook trigger node with REST-hook `webhookMethods` (mirror `lib/hooks.js`):
-- **create** → `POST /api/v1/webhooks` with `{ webhook: { url:<n8n webhook url>,
-  event_types:[…selected…], include_submission_data:true, version:3, name:"n8n",
-  mode } }`; store the webhook `id` in `workflowStaticData`.
-- **checkExists** → optional `GET /webhooks/{webhook_id}`.
-- **delete** → `DELETE /api/v1/webhooks/{webhook_id}`; tolerate 404.
-- **webhook()** → return the delivery flattened: top-level `id` stays the **event**
-  id (stable across retries), resource id exposed as `resource_id` (parity with
-  `lib/payload.js`). One node, an `events` multiSelect (all 13 events) + a `mode`
-  filter — the idiomatic n8n pattern (cf. one trigger node, not 13).
+| Resource | Operation | API v2 |
+| --- | --- | --- |
+| Submission | Generate PDF | `POST /templates/{id}/submissions` (sync) |
+| | Check Data | `POST /templates/{id}/submissions/validate` (returns `valid` and the error; doesn't throw) |
+| | Get / Get Many | `GET /submissions/{id}` / `GET /submissions` (`template_id`, `test`, `created_after/before`, `include_data`) |
+| | Generate Files | `POST /submissions/{id}/generate_files` (sync) |
+| | Expire | `DELETE /submissions/{id}` |
+| Submission Batch | Create / Get | `POST /submissions/batches` (sync) / `GET /submissions/batches/{id}` |
+| Combined PDF | Combine PDFs / Get | `POST /combined_pdfs` (sync) / `GET /combined_pdfs/{id}` |
+| Signature Request | Create | `POST /templates/{id}/submissions` with `signature_requests` (standard host), then `POST /signature_requests/{id}/tokens` per signer |
+| | Create Signing Link / Get | `POST /signature_requests/{id}/tokens` (`type` in the body) / `GET /signature_requests/{id}` |
+| Template | Create | `POST /templates` (sync; `document_url`, or `document_base64` + `filename` from a binary field, up to 7 MB) |
+| | Get / Get Many | `GET /templates/{id}` / `GET /templates` (`query`, `parent_folder_id`) |
+| | Replace PDF | `PUT /templates/{id}/document` (sync) |
+| | Copy / Move / Publish Version | `POST /templates/{id}/copy`, `/move`, `/publish_version` |
+| | Get Page Images | `GET /templates/{id}/page_images` |
+| Template Field | Get Many / Add / Update / Remove | `GET`, `POST`, `PUT /templates/{id}/fields`, `POST /templates/{id}/fields/remove` |
+| Folder | Get Many / Create | `GET /folders` / `POST /folders` |
 
-Events: `submission.processed` / `.failed` / `.created` / `.expired`,
-`submission_data_request.completed` / `.viewed`,
-`combined_submission.processed` / `.failed`,
-`submission_batch.processed` / `.failed`,
-`template.created` / `.updated` / `.deleted`.
+Responses are the API v2 resources as returned. Get Many operations output one item per resource (Template Field Get
+Many: one per field). Create Signature Request adds `signing_url` to each signature request, plus
+`first_signature_request_id` and `first_signing_url`; if a link can't be created, the error names the submission
+that was created so the user doesn't create it twice.
 
-## Gotchas carried over
+### Parameters and pickers
 
-- `version:3` pinned on webhook subscribe; flatten keeps event id as top-level id.
-- Naming: DocSpring calls data requests **signature requests**, so every display
-  name, action and description says "signature request". Stored values keep their
-  old names (resource `dataRequest`, parameters `dataRequests` and `dataRequestId`,
-  events `submission_data_request.*`): saved workflows hold them. The node subtitle
-  maps `dataRequest` to `signatureRequest`. New values come with the API v2 port, on a
-  new node version.
-- **Sync host + `?wait=true`** for Generate PDF / Combine PDFs; **standard host,
-  no wait** for Create Signature Request.
-- The PDF-encryption field is surfaced as "Encrypt PDF With Passphrase" and mapped
-  to the API's `password` (never label a non-auth field "password").
-- Self-hosted `customHost` validation (only `[scheme://]host[:port]`).
-- Combine PDFs / Signature Request errors: DocSpring returns `{status:error, errors:[…]}`
-  — surface `errors.join(', ')` as a clean NodeApiError.
+- **Template**: a resource locator. "From List" uses `listSearch.searchTemplates` (`GET /templates?query=`, one page
+  of 100 per call, `next_cursor` as n8n's pagination token); "By ID" takes `tpl_…`.
+- **Template Version**: a query parameter. Operations that create or check a submission default to the latest
+  published version; Get Template, Get Page Images and Template Field Get Many default to the draft.
+- **Template Data**: a resource mapper built from `GET /templates/{id}/schema?version=` (`schemaToResourceMapperFields`).
+  JSON Schema types map to n8n types (number, boolean, options for enums, object and array as JSON, `date-time` as
+  dateTime). `format: date` fields are text whose label says `YYYY-MM-DD`, because a dateTime value would be sent as
+  a date-time, which v2 rejects. Create Signature Request and Check Data make every field optional.
+- **Signers' fields**: a multi-select of the template's field names at the chosen version, from the same schema, with
+  nested keys joined by `/` (`schemaFieldNames`). v2 requires at least one per signer.
+- **Folders**: `loadOptions` pickers over `GET /folders` (paths such as `/Contracts/Leases`). Move and Copy add
+  "/ (Root)" (stored as `root`, sent as `parent_folder_id: null`).
+- **Date filters**: n8n's date picker gives a time without an offset, read in the workflow's time zone and sent as
+  RFC 3339 (`toRfc3339`).
 
-## Testing & publishing
+## Trigger: `DocSpringTrigger`
 
-- Local: `npm run build`, link into a local n8n (`~/.n8n/custom` or
-  `N8N_CUSTOM_EXTENSIONS`, or a docker n8n with the package mounted); exercise each
-  operation against the DocSpring test account (token in a local `.env`, gitignored).
-- Publish `n8n-nodes-docspring` to npm, then submit for n8n's **verified community
-  node** program.
+- **Events**: every version 4 event except `webhook.*` (submission, signature request, combined PDF, submission
+  batch, template, custom file and folder events). Options: live and/or test, template IDs, include submission data.
+- **create**: `POST /api/v2/webhooks` with `url`, `event_types`, `include_submission_data`, `name` (`n8n: <workflow>`)
+  and, when set, `mode` and `template_ids`. No `version`: webhooks created with API v2 are version 4. Only the
+  webhook `id` is stored, in the node's static data.
+- **checkExists**: `GET /api/v2/webhooks/{id}`; true only if it exists and points at this trigger's URL. A 404
+  forgets the stored ID.
+- **delete**: `DELETE /api/v2/webhooks/{id}`; a 404 counts as deleted, other errors fail.
+- **webhook()**: outputs the delivery as received (`id` = event ID, `event_type`, `created_at`, `data` = the API v2
+  resource) plus `resource_type` (the event name before the first dot) and `resource_id` (`data.id`).
 
-## Validation status (2026-09-10)
+## Naming
 
-Built as a **programmatic** node (execute() + webhook trigger) — cleaner than
-declarative routing for the region/sync-host switching, the signing-link minting
-loop, and pagination.
+Signature requests (never "data requests"), combined PDFs (never "combined submissions") and IDs (never "UIDs"), in
+labels, values and output. The PDF password option is labelled "Encrypt PDF With Passphrase" (n8n's linter reserves
+"password" for secrets).
 
-- ✅ **Compiles** clean (`tsc`) and **passes `eslint-plugin-n8n-nodes-base`** (the
-  ruleset n8n verification runs) — the linter drove the sentence-case actions,
-  alphabetized options, SVG icon, masked token fields, `['main']` inputs/outputs.
-- ✅ **Every operation validated against the live DocSpring API** via a mock-context
-  harness that runs the compiled node code: getTemplates (loadOptions), template
-  fields incl. enum→options (resourceMapper), Template search, Submission get /
-  getMany (cursor pagination), Generate PDF (sync host + data assembly), Combine
-  PDFs, Create Signature Request (+ signing-link minting), Create Signing Link (type=api
-  → 1h token via qs). Note: the enum→dropdown that was blocked in Make (needs an
-  "apps edit" perm) works cleanly here via `resourceMapper`.
-- ✅ **Trigger lifecycle** verified end-to-end: create registers a DocSpring webhook
-  (v3) and stores its id; checkExists confirms it; delete removes it; the flattener
-  produces the event-id-as-`id` shape.
-- ✅ **Real n8n runtime test** — installed the built package into a live n8n 2.8.4,
-  confirmed both nodes register (correct descriptions, 22/2 params, `docSpringApi`
-  credential), created a DocSpring credential, and **executed a workflow
-  (Manual Trigger → DocSpring: Find a Template) to `status: success`** — the node
-  returned the Demo PDF template. Credential injection + execute() + live API call
-  all work end-to-end inside n8n.
+## Checks
 
-Repo: `github.com/DocSpring/n8n_integration`. **Published to npm as
-`@docspring/n8n-nodes-docspring` v0.1.0.** n8n has since verified it (see Verification below).
+- `npm run build`, `npm run lint` (eslint-plugin-n8n-nodes-base, with two rules off that contradict n8n's
+  community scanner; see `.eslintrc.js`), `npm test` (builds, then `node --test` against `dist/`; HTTP is mocked and
+  the network is blocked).
+- `npx @n8n/scan-community-package @docspring/n8n-nodes-docspring` checks a published version against n8n's
+  community node rules (it downloads the package from npm).
+- Live checks against DocSpring with a test API token: link the built package into a local n8n
+  (`~/.n8n/custom`, `N8N_CUSTOM_EXTENSIONS`, or a Docker n8n with the package mounted) and run each operation and
+  the trigger.
 
+## Publishing and verification
 
-## Verification (n8n verified community node)
-
-Requirements (since 2026-05-01) and how they're met:
-- **Published with npm provenance via GitHub Actions** — `.github/workflows/publish.yml`
-  runs on `v*.*.*` tags and does `npm publish --provenance --access public`. Auth is
-  OIDC **trusted publishing** (npmjs.com → package → Trusted Publishers → GitHub
-  Actions `DocSpring/n8n_integration` / `publish.yml`); enable "Allow npm publish"
-  in Allowed Actions (default is stage-only → 403).
-- **Public source repo** — provenance is rejected for private repos; `n8n_integration`
-  (and the other integration repos) are public.
-- **Passes `@n8n/scan-community-package`** — uses the stricter `@n8n/community-nodes`
-  ESLint ruleset (NodeConnectionTypes.Main, credential icon, themed light/dark icons,
-  NodeApiError on throws). To lint locally: point eslint 9 at
-  `@n8n/eslint-plugin-community-nodes`'s `recommended` config with a TS parser.
-- v0.1.0 was a manual publish (no provenance); **v0.1.2 is the verified release** —
-  `✅ passed all security checks`. Submitted via the Creator Portal (creators.n8n.io/nodes).
+- `.github/workflows/publish.yml` publishes to npm with provenance on a `v*.*.*` tag (npm trusted publishing from
+  GitHub Actions; n8n requires provenance for verified nodes, and the repo must be public).
+- n8n verified the node at 0.1.2. Each new version is submitted in n8n's Creator Portal (creators.n8n.io/nodes)
+  before n8n Cloud offers it.
