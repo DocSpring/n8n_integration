@@ -128,4 +128,43 @@ function createHookContext({
 	return { context, http: httpMock, staticData };
 }
 
-module.exports = { createExecuteContext, createLoadOptionsContext, createHookContext, NODE };
+// A webhook delivery as n8n hands it to the trigger: the parsed body, the headers (lower case, as Node gives them)
+// and the request object, whose rawBody holds the bytes received. With `readLater`, rawBody is only set when the
+// node calls readRawBody(). The response records a status and body sent by the node.
+function createWebhookContext({ body, rawBody, headers = {}, staticData = {}, readLater = false }) {
+	const request = { headers };
+	if (readLater) {
+		request.readRawBody = async () => {
+			request.rawBody = rawBody;
+		};
+	} else if (rawBody !== undefined) {
+		request.rawBody = rawBody;
+	}
+	const response = {
+		statusCode: undefined,
+		body: undefined,
+		status(code) {
+			this.statusCode = code;
+			return this;
+		},
+		send(text) {
+			this.body = text;
+			return this;
+		},
+		end() {
+			return this;
+		},
+	};
+	const context = {
+		getNode: () => ({ ...NODE, name: 'DocSpring Trigger', type: 'docSpringTrigger' }),
+		getWorkflowStaticData: () => staticData,
+		getBodyData: () => body,
+		getHeaderData: () => headers,
+		getRequestObject: () => request,
+		getResponseObject: () => response,
+		helpers: { returnJsonArray: (data) => data.map((json) => ({ json })) },
+	};
+	return { context, response };
+}
+
+module.exports = { createExecuteContext, createLoadOptionsContext, createHookContext, createWebhookContext, NODE };

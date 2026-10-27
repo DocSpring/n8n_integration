@@ -17,6 +17,8 @@ import {
 	encodeId,
 	flattenDelivery,
 	parseList,
+	rawRequestBody,
+	verifyWebhookSignature,
 } from './GenericFunctions';
 
 // Every version 4 webhook event except webhook.* (API v2's names).
@@ -143,7 +145,8 @@ export class DocSpringTrigger implements INodeType {
 
 	webhookMethods = {
 		default: {
-			// The stored webhook still exists and points at this trigger's URL.
+			// The stored webhook still exists and points at this trigger's URL. Stores its secret when it has one, which
+			// also gives a webhook stored before secrets were kept its secret.
 			async checkExists(this: IHookFunctions): Promise<boolean> {
 				const webhookData = this.getWorkflowStaticData('node');
 				if (!webhookData.webhookId) return false;
@@ -152,15 +155,20 @@ export class DocSpringTrigger implements INodeType {
 						method: 'GET',
 						path: `/webhooks/${encodeId(String(webhookData.webhookId), 'Webhook ID', this.getNode())}`,
 					})) as IDataObject;
-					return webhook.url === this.getNodeWebhookUrl('default');
+					if (webhook.url !== this.getNodeWebhookUrl('default')) return false;
+					// Version 1 and 2 webhooks aren't signed, even with a secret.
+					const signed = webhook.version === undefined || Number(webhook.version) >= 3;
+					if (signed && typeof webhook.secret === 'string' && webhook.secret) webhookData.webhookSecret = webhook.secret;
+					return true;
 				} catch (error) {
 					if (!isNotFound(error)) throw error;
 					delete webhookData.webhookId;
+					delete webhookData.webhookSecret;
 					return false;
 				}
 			},
 
-			// Creates a version 4 webhook with API v2 and stores only its ID.
+			// Creates a version 4 webhook with API v2 and stores its ID and its secret, which signs each delivery.
 			async create(this: IHookFunctions): Promise<boolean> {
 				const options = (this.getNodeParameter('options', {}) as IDataObject) || {};
 				const events = this.getNodeParameter('events') as string[];
@@ -190,6 +198,11 @@ export class DocSpringTrigger implements INodeType {
 				if (!webhook?.id) return false;
 				const webhookData = this.getWorkflowStaticData('node');
 				webhookData.webhookId = webhook.id as string;
+				if (typeof webhook.secret === 'string' && webhook.secret) {
+					webhookData.webhookSecret = webhook.secret;
+				} else {
+					delete webhookData.webhookSecret;
+				}
 				return true;
 			},
 
@@ -207,12 +220,25 @@ export class DocSpringTrigger implements INodeType {
 					}
 					delete webhookData.webhookId;
 				}
+				delete webhookData.webhookSecret;
 				return true;
 			},
 		},
 	};
 
+	// Outputs a delivery whose X-DocSpring-Signature matches the stored secret, computed over the body exactly as
+	// received. Any other request gets a 401 and starts nothing. A webhook stored without a secret (before 1.0.0, until
+	// checkExists stores it) isn't checked.
 	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
+		const secret = this.getWorkflowStaticData('node').webhookSecret;
+		if (typeof secret === 'string' && secret) {
+			const rawBody = await rawRequestBody(this.getRequestObject());
+			const signature = this.getHeaderData()['x-docspring-signature'];
+			if (rawBody === undefined || !verifyWebhookSignature(secret, signature, rawBody)) {
+				this.getResponseObject().status(401).send('Invalid X-DocSpring-Signature');
+				return { noWebhookResponse: true };
+			}
+		}
 		const body = this.getBodyData();
 		return {
 			workflowData: [this.helpers.returnJsonArray([flattenDelivery(body)])],

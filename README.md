@@ -107,6 +107,9 @@ Each event is output like this, with `data` as API v2 returns the resource:
 
 `id` is the event's ID, which stays the same when DocSpring retries a delivery.
 
+The trigger checks each delivery's `X-DocSpring-Signature` with the webhook's signing secret, which it keeps when it
+creates the webhook. A request without a valid signature gets a 401 and doesn't start the workflow.
+
 ## Make an API call
 
 To call an API v2 endpoint this node doesn't have, use n8n's **HTTP Request** node with your DocSpring credential:

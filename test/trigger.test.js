@@ -3,7 +3,9 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { createHookContext } = require('./helpers');
+const crypto = require('node:crypto');
+
+const { createHookContext, createWebhookContext } = require('./helpers');
 const { DocSpringTrigger, EVENTS } = require('../dist/nodes/DocSpring/DocSpringTrigger.node.js');
 const { flattenDelivery } = require('../dist/nodes/DocSpring/GenericFunctions.js');
 
@@ -40,7 +42,7 @@ describe('events', () => {
 });
 
 describe('webhook lifecycle', () => {
-	test('create posts a flat API v2 webhook without a version and stores only its ID', async () => {
+	test("create posts a flat API v2 webhook without a version and stores its ID and secret", async () => {
 		const staticData = {};
 		const { context, http } = createHookContext({
 			params: {
@@ -63,7 +65,7 @@ describe('webhook lifecycle', () => {
 			mode: 'live',
 			template_ids: ['tpl_1', 'tpl_2'],
 		});
-		assert.deepEqual(staticData, { webhookId: 'whk_1' });
+		assert.deepEqual(staticData, { webhookId: 'whk_1', webhookSecret: 'shh' });
 	});
 
 	test('create leaves out the mode for live and test events, and can leave out submission data', async () => {
@@ -82,11 +84,28 @@ describe('webhook lifecycle', () => {
 
 	test('checkExists is true for the stored webhook at this URL, and forgets a deleted one', async () => {
 		const found = createHookContext({
-			staticData: { webhookId: 'whk_1' },
-			responses: [{ body: { id: 'whk_1', url: WEBHOOK_URL } }],
+			staticData: { webhookId: 'whk_1', webhookSecret: 'shh' },
+			responses: [{ body: { id: 'whk_1', url: WEBHOOK_URL, secret: 'shh' } }],
 		});
 		assert.equal(await hooks.checkExists.call(found.context), true);
 		assert.equal(found.http.requests[0].url, 'https://api.docspring.com/api/v2/webhooks/whk_1');
+		assert.deepEqual(found.staticData, { webhookId: 'whk_1', webhookSecret: 'shh' });
+
+		// A webhook stored before secrets were kept gets its secret, so its deliveries are checked from now on.
+		const withoutSecret = createHookContext({
+			staticData: { webhookId: 'whk_1' },
+			responses: [{ body: { id: 'whk_1', url: WEBHOOK_URL, secret: 'shh' } }],
+		});
+		assert.equal(await hooks.checkExists.call(withoutSecret.context), true);
+		assert.deepEqual(withoutSecret.staticData, { webhookId: 'whk_1', webhookSecret: 'shh' });
+
+		// Version 1 and 2 webhooks send unsigned deliveries, so their secret isn't stored.
+		const legacy = createHookContext({
+			staticData: { webhookId: 'whk_1' },
+			responses: [{ body: { id: 'whk_1', url: WEBHOOK_URL, secret: 'shh', version: 2 } }],
+		});
+		assert.equal(await hooks.checkExists.call(legacy.context), true);
+		assert.deepEqual(legacy.staticData, { webhookId: 'whk_1' });
 
 		const otherUrl = createHookContext({
 			staticData: { webhookId: 'whk_1' },
@@ -95,7 +114,7 @@ describe('webhook lifecycle', () => {
 		assert.equal(await hooks.checkExists.call(otherUrl.context), false);
 
 		const gone = createHookContext({
-			staticData: { webhookId: 'whk_1' },
+			staticData: { webhookId: 'whk_1', webhookSecret: 'shh' },
 			responses: [{ statusCode: 404, body: { error: { code: 'not_found', message: 'No webhook', details: [], request_id: 'r' } } }],
 		});
 		assert.equal(await hooks.checkExists.call(gone.context), false);
@@ -103,7 +122,10 @@ describe('webhook lifecycle', () => {
 	});
 
 	test('delete tolerates a 404 and surfaces other errors', async () => {
-		const deleted = createHookContext({ staticData: { webhookId: 'whk_1' }, responses: [{ body: { id: 'whk_1' } }] });
+		const deleted = createHookContext({
+			staticData: { webhookId: 'whk_1', webhookSecret: 'shh' },
+			responses: [{ body: { id: 'whk_1' } }],
+		});
 		assert.equal(await hooks.delete.call(deleted.context), true);
 		assert.equal(deleted.http.requests[0].method, 'DELETE');
 		assert.equal(deleted.http.requests[0].url, 'https://api.docspring.com/api/v2/webhooks/whk_1');
@@ -133,10 +155,7 @@ describe('deliveries', () => {
 			created_at: '2026-06-27T03:16:07Z',
 			data: { id: 'srq_1', submission_id: 'sub_1', created_at: '2026-06-01T00:00:00Z' },
 		};
-		const context = {
-			getBodyData: () => delivery,
-			helpers: { returnJsonArray: (data) => data.map((json) => ({ json })) },
-		};
+		const { context } = createWebhookContext({ body: delivery, rawBody: Buffer.from(JSON.stringify(delivery)) });
 		const response = await new DocSpringTrigger().webhook.call(context);
 		assert.deepEqual(response.workflowData, [
 			[
@@ -221,5 +240,75 @@ describe('template filter', () => {
 		const templateIds = options.options.find((option) => option.name === 'templateIds');
 		assert.match(templateIds.description, /submission, signature request and template events/);
 		assert.match(templateIds.description, /can't be filtered by template/);
+	});
+});
+
+describe('webhook signatures', () => {
+	const SECRET = 'whsec_test_secret';
+	// Key order and spacing differ from JSON.stringify's, as a server's JSON may: only the bytes received verify.
+	const RAW = '{"event_type": "submission.processed",\n  "id":"evt_1", "created_at":"2026-06-27T03:16:07Z","data":{"id":"sub_1","state":"processed"}}';
+	const BODY = JSON.parse(RAW);
+	const T = '1782532874';
+	const sign = (payload, secret = SECRET) => crypto.createHmac('sha256', secret).update(payload, 'utf8').digest('hex');
+	const header = (...signatures) => [`t=${T}`, ...signatures.map((signature) => `v1=${signature}`)].join(',');
+
+	async function deliver({ rawBody = Buffer.from(RAW, 'utf8'), signature, staticData = { webhookId: 'whk_1', webhookSecret: SECRET }, readLater }) {
+		const headers = signature === undefined ? {} : { 'x-docspring-signature': signature };
+		const { context, response } = createWebhookContext({ body: BODY, rawBody, headers, staticData, readLater });
+		const result = await new DocSpringTrigger().webhook.call(context);
+		return { result, response };
+	}
+
+	function assertRejected({ result, response }) {
+		assert.equal(response.statusCode, 401);
+		assert.deepEqual(result, { noWebhookResponse: true });
+	}
+
+	test('a delivery signed over the raw body is output', async () => {
+		assert.notEqual(JSON.stringify(BODY), RAW);
+		const { result, response } = await deliver({ signature: header(sign(`${T}.${RAW}`)) });
+		assert.equal(response.statusCode, undefined);
+		assert.equal(result.workflowData[0][0].json.id, 'evt_1');
+		assert.equal(result.workflowData[0][0].json.resource_id, 'sub_1');
+	});
+
+	test('any v1 signature can match, such as while the secret is being replaced', async () => {
+		const { result } = await deliver({ signature: header(sign(`${T}.${RAW}`, 'old_secret'), sign(`${T}.${RAW}`)) });
+		assert.equal(result.workflowData[0].length, 1);
+	});
+
+	test('the raw body is read when n8n has not read it yet', async () => {
+		const { result } = await deliver({ signature: header(sign(`${T}.${RAW}`)), readLater: true });
+		assert.equal(result.workflowData[0].length, 1);
+	});
+
+	test('a signature over the re-serialised body is rejected', async () => {
+		assertRejected(await deliver({ signature: header(sign(`${T}.${JSON.stringify(BODY)}`)) }));
+	});
+
+	test('a changed body, timestamp or secret is rejected with a 401 and nothing is output', async () => {
+		const signature = sign(`${T}.${RAW}`);
+		assertRejected(await deliver({ rawBody: Buffer.from(RAW.replace('processed', 'failed')), signature: header(signature) }));
+		assertRejected(await deliver({ signature: `t=1782532875,v1=${signature}` }));
+		assertRejected(await deliver({ signature: header(sign(`${T}.${RAW}`, 'another_secret')) }));
+	});
+
+	test('a missing or malformed signature header is rejected', async () => {
+		assertRejected(await deliver({}));
+		assertRejected(await deliver({ signature: '' }));
+		assertRejected(await deliver({ signature: `v1=${sign(`${T}.${RAW}`)}` }));
+		assertRejected(await deliver({ signature: `t=${T}` }));
+		assertRejected(await deliver({ signature: `t=${T},v1=abc` }));
+		assertRejected(await deliver({ signature: 'garbage' }));
+	});
+
+	test('a delivery is rejected when the raw body is not available', async () => {
+		assertRejected(await deliver({ rawBody: null, signature: header(sign(`${T}.${RAW}`)) }));
+	});
+
+	test('a webhook stored without a secret (before 1.0.0) is not checked', async () => {
+		const { result, response } = await deliver({ staticData: { webhookId: 'whk_1' } });
+		assert.equal(response.statusCode, undefined);
+		assert.equal(result.workflowData[0].length, 1);
 	});
 });

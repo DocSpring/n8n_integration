@@ -49,6 +49,7 @@
     "n8n-workflow": "*"
   },
   "devDependencies": {
+    "@types/node": "20.19.43",
     "@typescript-eslint/parser": "^7.18.0",
     "eslint": "^8.57.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.3",

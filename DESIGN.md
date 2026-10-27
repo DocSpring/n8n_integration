@@ -103,8 +103,9 @@ that was created so the user doesn't create it twice.
   dateTime). Booleans (checkbox fields) are options too: Leave Blank (`""`), True (`true`) and False (`false`), with no
   default. n8n's mapper gives a `boolean` field a default of `false` when it adds all fields
   (`getDefaultFieldValue` in `ResourceMapper.vue`), and v2 treats `false` as a prefilled value, so a signer's
-  checkbox would be a 422; an `options` field gets `null`, which n8n drops. Blank values aren't sent. `format: date` fields are text whose label says `YYYY-MM-DD`, because a dateTime value would be sent as
-  a date-time, which v2 rejects. Create Signature Request and Check Data make every field optional.
+  checkbox would be a 422; an `options` field gets `null`, which n8n drops. Blank values aren't sent. `format: date`
+  fields are text whose label says `YYYY-MM-DD`, because a dateTime value would be sent as a date-time, which v2
+  rejects. Create Signature Request and Check Data make every field optional.
 - **Signers' fields**: a multi-select of the names from `GET /templates/{id}/fields?version=` (the chosen version, or
   `latest` when it's empty), each once and in the API's order, without static fields, combined fields and `@@`
   submission details (`signerFieldNames`, as in the Pipedream integration). It reloads when the template or version
@@ -121,11 +122,20 @@ that was created so the user doesn't create it twice.
 - **create**: `POST /api/v2/webhooks` with `url`, `event_types`, `include_submission_data`, `name` (`n8n: <workflow>`)
   and, when set, `mode` and `template_ids`. Only `submission.*`, `signature_request.*` and `template.*` events can
   be filtered by template (the API rejects a template-scoped webhook with any other event), so with template IDs set,
-  create fails before calling the API and names the other events. No `version`: webhooks created with API v2 are version 4. Only the
-  webhook `id` is stored, in the node's static data.
-- **checkExists**: `GET /api/v2/webhooks/{id}`; true only if it exists and points at this trigger's URL. A 404
-  forgets the stored ID.
-- **delete**: `DELETE /api/v2/webhooks/{id}`; a 404 counts as deleted, other errors fail.
+  create fails before calling the API and names the other events. No `version`: webhooks created with API v2 are
+  version 4. The webhook's `id` and `secret` are stored in the node's static data (`webhookId`, `webhookSecret`).
+- **checkExists**: `GET /api/v2/webhooks/{id}`; true only if it exists and points at this trigger's URL, and then it
+  stores the webhook's `secret` (unless it's a version 1 or 2 webhook, which sends unsigned deliveries). That gives a
+  webhook stored without a secret its secret on the next activation. A 404 forgets the stored ID and secret.
+- **delete**: `DELETE /api/v2/webhooks/{id}`; a 404 counts as deleted, other errors fail. Forgets the ID and secret.
+- **Signatures**: with a stored secret, `webhook()` checks `X-DocSpring-Signature` (`t=<time>,v1=<hex>`, any number of
+  `v1`): HMAC-SHA256 of `"<t>.<raw body>"` with the secret, in hex, compared in constant time with each `v1`
+  (`verifyWebhookSignature`, Node's `crypto`). The raw body is the request's `rawBody` Buffer, which n8n fills
+  before parsing the JSON (`readRawBody()` when it hasn't yet; both are declared on `IncomingMessage` in
+  n8n-workflow); it is never the re-serialised JSON. A delivery that fails, or has no raw body, gets a 401 through
+  `getResponseObject()` and `noWebhookResponse`, and starts nothing. The timestamp's age isn't checked. A webhook
+  stored without a secret isn't checked. `crypto` is Node's own module, so the package still has no runtime
+  dependencies; `@types/node` is a dev dependency, for its types only.
 - **webhook()**: outputs the delivery as received (`id` = event ID, `event_type`, `created_at`, `data` = the API v2
   resource) plus `resource_type` (the event name before the first dot) and `resource_id` (`data.id`).
 

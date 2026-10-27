@@ -10,6 +10,7 @@ import type {
 	JsonObject,
 } from 'n8n-workflow';
 import { NodeApiError, NodeOperationError } from 'n8n-workflow';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 import { NO_API_V2_MESSAGE, USER_AGENT } from './version';
 
@@ -579,4 +580,37 @@ export function flattenDelivery(body: unknown): IDataObject {
 		data,
 		...rest,
 	};
+}
+
+// The request body exactly as received, which the signature covers. n8n reads it into `rawBody` (a Buffer) before it
+// parses the JSON; `readRawBody()` reads it when that hasn't happened yet. Undefined when neither is there.
+export async function rawRequestBody(request: unknown): Promise<Buffer | string | undefined> {
+	const req = (request || {}) as { rawBody?: unknown; readRawBody?: () => Promise<void> };
+	if (req.rawBody === undefined && typeof req.readRawBody === 'function') await req.readRawBody();
+	const raw = req.rawBody;
+	return Buffer.isBuffer(raw) || typeof raw === 'string' ? raw : undefined;
+}
+
+// Checks an X-DocSpring-Signature header (`t=<unix time>,v1=<hex>`): v1 is the HMAC-SHA256, in hex, of
+// "<t>.<raw body>" with the webhook's secret. The header can hold several v1 values (while a secret is being
+// replaced), and any of them can match. Each is compared in constant time. The timestamp's age isn't checked.
+export function verifyWebhookSignature(secret: string, header: unknown, rawBody: Buffer | string): boolean {
+	const text = Array.isArray(header) ? header.join(',') : typeof header === 'string' ? header : '';
+	let timestamp: string | undefined;
+	const signatures: string[] = [];
+	for (const part of text.split(',')) {
+		const separator = part.indexOf('=');
+		if (separator < 0) continue;
+		const key = part.slice(0, separator).trim();
+		const value = part.slice(separator + 1).trim();
+		if (key === 't' && timestamp === undefined) timestamp = value;
+		if (key === 'v1' && value) signatures.push(value);
+	}
+	if (!timestamp || signatures.length === 0) return false;
+
+	const expected = Buffer.from(createHmac('sha256', secret).update(`${timestamp}.`).update(rawBody).digest('hex'));
+	return signatures.some((signature) => {
+		const given = Buffer.from(signature);
+		return given.length === expected.length && timingSafeEqual(given, expected);
+	});
 }
