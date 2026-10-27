@@ -116,3 +116,16 @@ describe('template data fields', () => {
 		assert.ok(fields.every((field) => field.required === false));
 	});
 });
+
+describe('IDs in paths', () => {
+	test('the pickers reject a template ID of "." or ".." before any request', async () => {
+		for (const method of [methods.loadOptions.getTemplateFieldNames, methods.resourceMapping.getTemplateFields]) {
+			const { context, http } = createLoadOptionsContext({
+				params: { templateId: { mode: 'id', value: '..' }, templateVersion: '' },
+				responses: [{ body: SCHEMA }],
+			});
+			await assert.rejects(method.call(context), /Template ID can't be "\.\."/);
+			assert.equal(http.requests.length, 0);
+		}
+	});
+});

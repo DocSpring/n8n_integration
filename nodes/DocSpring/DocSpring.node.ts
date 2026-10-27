@@ -81,7 +81,7 @@ async function templateSchema(context: ILoadOptionsFunctions): Promise<IDataObje
 	if (!templateId) return undefined;
 	return (await docSpringApiRequest.call(context, {
 		method: 'GET',
-		path: `/templates/${encodeId(templateId)}/schema`,
+		path: `/templates/${encodeId(templateId, 'Template ID', context.getNode())}/schema`,
 		qs: templateVersionQuery(context),
 	})) as IDataObject;
 }
@@ -169,7 +169,7 @@ export class DocSpring implements INodeType {
 				if (!templateId) return [];
 				const response = (await docSpringApiRequest.call(this, {
 					method: 'GET',
-					path: `/templates/${encodeId(templateId)}/fields`,
+					path: `/templates/${encodeId(templateId, 'Template ID', this.getNode())}/fields`,
 				})) as IDataObject;
 				const fields = Array.isArray(response?.fields) ? (response.fields as IDataObject[]) : [];
 				return fields.map((field) => ({

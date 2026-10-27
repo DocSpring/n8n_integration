@@ -146,7 +146,7 @@ export class DocSpringTrigger implements INodeType {
 				try {
 					const webhook = (await docSpringApiRequest.call(this, {
 						method: 'GET',
-						path: `/webhooks/${encodeId(String(webhookData.webhookId))}`,
+						path: `/webhooks/${encodeId(String(webhookData.webhookId), 'Webhook ID', this.getNode())}`,
 					})) as IDataObject;
 					return webhook.url === this.getNodeWebhookUrl('default');
 				} catch (error) {
@@ -185,7 +185,7 @@ export class DocSpringTrigger implements INodeType {
 					try {
 						await docSpringApiRequest.call(this, {
 							method: 'DELETE',
-							path: `/webhooks/${encodeId(String(webhookData.webhookId))}`,
+							path: `/webhooks/${encodeId(String(webhookData.webhookId), 'Webhook ID', this.getNode())}`,
 						});
 					} catch (error) {
 						if (!isNotFound(error)) throw error;

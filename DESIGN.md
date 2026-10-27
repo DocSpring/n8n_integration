@@ -50,6 +50,8 @@ a new node version (n8n keeps each saved node's `typeVersion`).
   (`sync.api.docspring.com`, `sync.api-eu.docspring.com`) with `?wait=true`, or `wait=false` when the user turns
   waiting off. Self-hosted uses its custom host for both (`https://` added when there's no scheme). Path prefix
   `/api/v2`.
+- **IDs in paths** are encoded with `encodeURIComponent` (`encodeId`). An ID of `.` or `..` (after trimming) fails
+  before any request, since the URL would resolve it to another path.
 - **Bodies** are flat JSON with only the properties the operation has (v2 rejects unknown ones). `version` and `wait`
   are query parameters. `test` is only sent when it's true (v2 rejects `test: false` from a test token). Booleans and
   integers that arrive as strings from expressions are converted, or rejected with a message. Optional values left

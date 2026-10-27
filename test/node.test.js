@@ -762,3 +762,49 @@ describe('Template Field and Folder', () => {
 		assert.deepEqual(listed.requests[0].qs, { parent_folder_id: 'fld_1', limit: 5 });
 	});
 });
+
+describe('IDs in paths', () => {
+	const cases = [
+		['Submission ID', { resource: 'submission', operation: 'get', submissionId: '..' }],
+		['Submission ID', { resource: 'submission', operation: 'expire', submissionId: ' .. ' }],
+		['Submission ID', { resource: 'submission', operation: 'generateFiles', submissionId: '.', formats: ['png'], options: {} }],
+		['Submission Batch ID', { resource: 'submissionBatch', operation: 'get', submissionBatchId: '..', options: {} }],
+		['Combined PDF ID', { resource: 'combinedPdf', operation: 'get', combinedPdfId: '.' }],
+		['Signature Request ID', { resource: 'signatureRequest', operation: 'get', signatureRequestId: '..' }],
+		['Signature Request ID', { resource: 'signatureRequest', operation: 'createSigningLink', signatureRequestId: '..', linkType: 'api' }],
+		['Template ID', { resource: 'template', operation: 'get', templateId: { mode: 'id', value: '..' }, templateVersion: '' }],
+		['Template ID', { resource: 'template', operation: 'move', templateId: { mode: 'id', value: '.' }, folderId: 'root' }],
+		[
+			'Template ID',
+			{
+				resource: 'submission',
+				operation: 'generatePdf',
+				templateId: { mode: 'id', value: ' .. ' },
+				templateVersion: '',
+				templateData: { value: {} },
+				test: false,
+				options: {},
+			},
+		],
+		['Template ID', { resource: 'templateField', operation: 'remove', templateId: { mode: 'id', value: '..' }, fieldIds: [1] }],
+	];
+
+	for (const [label, params] of cases) {
+		test(`${params.resource}:${params.operation} rejects a ${label} of "." or ".." before any request`, async () => {
+			const { context, http } = createExecuteContext({ params, responses: [{ body: {} }, { body: {} }] });
+			await assert.rejects(new DocSpring().execute.call(context), (error) => {
+				assert.match(error.message, new RegExp(`^${label} can't be "\\.\\.?"`));
+				return true;
+			});
+			assert.equal(http.requests.length, 0);
+		});
+	}
+
+	test('IDs with slashes and dots are encoded', async () => {
+		const { requests } = await run({
+			params: { resource: 'submission', operation: 'get', submissionId: '../templates/tpl_1' },
+			responses: [{ body: submission() }],
+		});
+		assert.equal(requests[0].url, 'https://api.docspring.com/api/v2/submissions/..%2Ftemplates%2Ftpl_1');
+	});
+});

@@ -79,7 +79,13 @@ export function resolveBaseUrl(credentials: DocSpringCredentials, sync: boolean,
 	return `https://${sync ? entry.sync : entry.standard}`;
 }
 
-export function encodeId(id: string): string {
+// An ID for a URL path. encodeURIComponent leaves "." and ".." as they are, and the URL would resolve them to
+// another path (a submission ID of ".." would make Expire Submission call DELETE /api/v2/), so they're rejected.
+export function encodeId(id: string, label: string, node: INode, itemIndex?: number): string {
+	const trimmed = String(id).trim();
+	if (trimmed === '.' || trimmed === '..') {
+		throw new NodeOperationError(node, `${label} can't be "${trimmed}"`, { itemIndex });
+	}
 	return encodeURIComponent(id);
 }
 

@@ -166,3 +166,11 @@ describe('deliveries', () => {
 		});
 	});
 });
+
+describe('IDs in paths', () => {
+	test('a stored webhook ID of "." or ".." is never put in a path', async () => {
+		const { context, http } = createHookContext({ staticData: { webhookId: '..' }, responses: [{ body: {} }] });
+		await assert.rejects(hooks.delete.call(context), /Webhook ID can't be "\.\."/);
+		assert.equal(http.requests.length, 0);
+	});
+});

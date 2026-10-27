@@ -64,6 +64,11 @@ function throwFailure(ctx: IExecuteFunctions, failure: ErrorText | undefined, i:
 	}
 }
 
+// An ID for a URL path: encoded, and never "." or "..".
+function pathId(ctx: IExecuteFunctions, id: string, label: string, i: number): string {
+	return encodeId(id, label, ctx.getNode(), i);
+}
+
 async function request(ctx: IExecuteFunctions, apiRequest: ApiRequest, i: number): Promise<any> {
 	return docSpringApiRequest.call(ctx, apiRequest, i);
 }
@@ -195,7 +200,7 @@ const generatePdf: Operation = async function (i) {
 		this,
 		{
 			method: 'POST',
-			path: `/templates/${encodeId(templateId)}/submissions`,
+			path: `/templates/${pathId(this, templateId, 'Template ID', i)}/submissions`,
 			qs: { ...versionQuery(this, i), ...waitQuery(this, options, i) },
 			body,
 			sync: true,
@@ -214,7 +219,7 @@ const checkData: Operation = async function (i) {
 		this,
 		{
 			method: 'POST',
-			path: `/templates/${encodeId(templateId)}/submissions/validate`,
+			path: `/templates/${pathId(this, templateId, 'Template ID', i)}/submissions/validate`,
 			qs: versionQuery(this, i),
 			body,
 		},
@@ -224,12 +229,12 @@ const checkData: Operation = async function (i) {
 
 const getSubmission: Operation = async function (i) {
 	const id = requiredString(this, 'submissionId', 'Submission ID', i);
-	return request(this, { method: 'GET', path: `/submissions/${encodeId(id)}` }, i);
+	return request(this, { method: 'GET', path: `/submissions/${pathId(this, id, 'Submission ID', i)}` }, i);
 };
 
 const expireSubmission: Operation = async function (i) {
 	const id = requiredString(this, 'submissionId', 'Submission ID', i);
-	return request(this, { method: 'DELETE', path: `/submissions/${encodeId(id)}` }, i);
+	return request(this, { method: 'DELETE', path: `/submissions/${pathId(this, id, 'Submission ID', i)}` }, i);
 };
 
 const generateFiles: Operation = async function (i) {
@@ -241,7 +246,7 @@ const generateFiles: Operation = async function (i) {
 		this,
 		{
 			method: 'POST',
-			path: `/submissions/${encodeId(id)}/generate_files`,
+			path: `/submissions/${pathId(this, id, 'Submission ID', i)}/generate_files`,
 			qs: waitQuery(this, options, i),
 			body: { formats },
 			sync: true,
@@ -301,7 +306,7 @@ const getSubmissionBatch: Operation = async function (i) {
 	const options = optionsParam(this, i);
 	const qs: IDataObject = {};
 	if (toBoolean(options.includeData, 'Include Data', this.getNode(), i)) qs.include_data = true;
-	return request(this, { method: 'GET', path: `/submissions/batches/${encodeId(id)}`, qs }, i);
+	return request(this, { method: 'GET', path: `/submissions/batches/${pathId(this, id, 'Submission Batch ID', i)}`, qs }, i);
 };
 
 // ─── Combined PDFs ────────────────────────────────────────────────────────────
@@ -343,7 +348,7 @@ const combinePdfs: Operation = async function (i) {
 
 const getCombinedPdf: Operation = async function (i) {
 	const id = requiredString(this, 'combinedPdfId', 'Combined PDF ID', i);
-	return request(this, { method: 'GET', path: `/combined_pdfs/${encodeId(id)}` }, i);
+	return request(this, { method: 'GET', path: `/combined_pdfs/${pathId(this, id, 'Combined PDF ID', i)}` }, i);
 };
 
 // ─── Signature requests ───────────────────────────────────────────────────────
@@ -367,7 +372,7 @@ const createSignatureRequest: Operation = async function (i) {
 
 	const submission = await create(
 		this,
-		{ method: 'POST', path: `/templates/${encodeId(templateId)}/submissions`, qs: versionQuery(this, i), body },
+		{ method: 'POST', path: `/templates/${pathId(this, templateId, 'Template ID', i)}/submissions`, qs: versionQuery(this, i), body },
 		'submission',
 		i,
 	);
@@ -383,7 +388,7 @@ const createSignatureRequest: Operation = async function (i) {
 					this,
 					{
 						method: 'POST',
-						path: `/signature_requests/${encodeId(String(signatureRequest.id))}/tokens`,
+						path: `/signature_requests/${pathId(this, String(signatureRequest.id), 'Signature Request ID', i)}/tokens`,
 						body: { type: linkType },
 					},
 					i,
@@ -414,19 +419,19 @@ const createSignatureRequest: Operation = async function (i) {
 const createSigningLink: Operation = async function (i) {
 	const id = requiredString(this, 'signatureRequestId', 'Signature Request ID', i);
 	const type = stringParam(this, 'linkType', i) || 'email';
-	return request(this, { method: 'POST', path: `/signature_requests/${encodeId(id)}/tokens`, body: { type } }, i);
+	return request(this, { method: 'POST', path: `/signature_requests/${pathId(this, id, 'Signature Request ID', i)}/tokens`, body: { type } }, i);
 };
 
 const getSignatureRequest: Operation = async function (i) {
 	const id = requiredString(this, 'signatureRequestId', 'Signature Request ID', i);
-	return request(this, { method: 'GET', path: `/signature_requests/${encodeId(id)}` }, i);
+	return request(this, { method: 'GET', path: `/signature_requests/${pathId(this, id, 'Signature Request ID', i)}` }, i);
 };
 
 // ─── Templates ────────────────────────────────────────────────────────────────
 
 const getTemplate: Operation = async function (i) {
 	const id = templateIdParam(this, i);
-	return request(this, { method: 'GET', path: `/templates/${encodeId(id)}`, qs: versionQuery(this, i) }, i);
+	return request(this, { method: 'GET', path: `/templates/${pathId(this, id, 'Template ID', i)}`, qs: versionQuery(this, i) }, i);
 };
 
 const getManyTemplates: Operation = async function (i) {
@@ -483,7 +488,7 @@ const replaceTemplatePdf: Operation = async function (i) {
 		this,
 		{
 			method: 'PUT',
-			path: `/templates/${encodeId(id)}/document`,
+			path: `/templates/${pathId(this, id, 'Template ID', i)}/document`,
 			qs: waitQuery(this, options, i),
 			body,
 			sync: true,
@@ -503,7 +508,7 @@ const copyTemplate: Operation = async function (i) {
 	if (folderId !== undefined) body.parent_folder_id = folderId;
 	const version = options.version === undefined ? '' : String(options.version).trim();
 	if (version) body.version = version;
-	return request(this, { method: 'POST', path: `/templates/${encodeId(id)}/copy`, body }, i);
+	return request(this, { method: 'POST', path: `/templates/${pathId(this, id, 'Template ID', i)}/copy`, body }, i);
 };
 
 const moveTemplate: Operation = async function (i) {
@@ -514,7 +519,7 @@ const moveTemplate: Operation = async function (i) {
 	}
 	return request(
 		this,
-		{ method: 'POST', path: `/templates/${encodeId(id)}/move`, body: { parent_folder_id: folderId } },
+		{ method: 'POST', path: `/templates/${pathId(this, id, 'Template ID', i)}/move`, body: { parent_folder_id: folderId } },
 		i,
 	);
 };
@@ -524,12 +529,12 @@ const publishTemplateVersion: Operation = async function (i) {
 	const body: IDataObject = { version_type: stringParam(this, 'versionType', i) || 'patch' };
 	const description = stringParam(this, 'versionDescription', i);
 	if (description) body.description = description;
-	return request(this, { method: 'POST', path: `/templates/${encodeId(id)}/publish_version`, body }, i);
+	return request(this, { method: 'POST', path: `/templates/${pathId(this, id, 'Template ID', i)}/publish_version`, body }, i);
 };
 
 const getTemplatePageImages: Operation = async function (i) {
 	const id = templateIdParam(this, i);
-	return request(this, { method: 'GET', path: `/templates/${encodeId(id)}/page_images`, qs: versionQuery(this, i) }, i);
+	return request(this, { method: 'GET', path: `/templates/${pathId(this, id, 'Template ID', i)}/page_images`, qs: versionQuery(this, i) }, i);
 };
 
 // ─── Template fields ──────────────────────────────────────────────────────────
@@ -538,7 +543,7 @@ const getManyTemplateFields: Operation = async function (i) {
 	const id = templateIdParam(this, i);
 	const response = (await request(
 		this,
-		{ method: 'GET', path: `/templates/${encodeId(id)}/fields`, qs: versionQuery(this, i) },
+		{ method: 'GET', path: `/templates/${pathId(this, id, 'Template ID', i)}/fields`, qs: versionQuery(this, i) },
 		i,
 	)) as IDataObject;
 	return Array.isArray(response.fields) ? (response.fields as IDataObject[]) : [];
@@ -547,13 +552,13 @@ const getManyTemplateFields: Operation = async function (i) {
 const addTemplateFields: Operation = async function (i) {
 	const id = templateIdParam(this, i);
 	const fields = parseJsonArrayOfObjects(this.getNodeParameter('fields', i), 'Fields', this.getNode(), i, 'fields');
-	return request(this, { method: 'POST', path: `/templates/${encodeId(id)}/fields`, body: { fields } }, i);
+	return request(this, { method: 'POST', path: `/templates/${pathId(this, id, 'Template ID', i)}/fields`, body: { fields } }, i);
 };
 
 const updateTemplateFields: Operation = async function (i) {
 	const id = templateIdParam(this, i);
 	const fields = parseJsonArrayOfObjects(this.getNodeParameter('fields', i), 'Fields', this.getNode(), i, 'fields');
-	return request(this, { method: 'PUT', path: `/templates/${encodeId(id)}/fields`, body: { fields } }, i);
+	return request(this, { method: 'PUT', path: `/templates/${pathId(this, id, 'Template ID', i)}/fields`, body: { fields } }, i);
 };
 
 const removeTemplateFields: Operation = async function (i) {
@@ -564,7 +569,7 @@ const removeTemplateFields: Operation = async function (i) {
 	}
 	return request(
 		this,
-		{ method: 'POST', path: `/templates/${encodeId(id)}/fields/remove`, body: { field_ids: fieldIds } },
+		{ method: 'POST', path: `/templates/${pathId(this, id, 'Template ID', i)}/fields/remove`, body: { field_ids: fieldIds } },
 		i,
 	);
 };
