@@ -152,16 +152,6 @@ export class DocSpring implements INodeType {
 			},
 		},
 		loadOptions: {
-			async getTemplates(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const templates = await docSpringApiRequestAllItems.call(
-					this,
-					{ method: 'GET', path: '/templates' },
-					PICKER_MAX_ITEMS,
-				);
-				return templates
-					.map((template) => ({ name: (template.name as string) || (template.id as string), value: template.id as string }))
-					.sort((a, b) => a.name.localeCompare(b.name));
-			},
 			async getFolders(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				return folderOptions(this);
 			},

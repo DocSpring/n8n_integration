@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 
 const { createLoadOptionsContext } = require('./helpers');
 const { DocSpring } = require('../dist/nodes/DocSpring/DocSpring.node.js');
+const { DocSpringTrigger } = require('../dist/nodes/DocSpring/DocSpringTrigger.node.js');
 
 const { methods } = new DocSpring();
 const TEMPLATE = { __rl: true, mode: 'list', value: 'tpl_123' };
@@ -56,7 +57,7 @@ describe('pickers', () => {
 		assert.deepEqual(http.requests[1].qs, { limit: 100, cursor: 'fld_2' });
 	});
 
-	test('pickers stop after 1,000 items', async () => {
+	test("the trigger's template picker stops after 1,000 items", async () => {
 		const page = (start) => ({
 			body: {
 				data: Array.from({ length: 100 }, (_, index) => ({ id: `tpl_${start + index}`, name: `T${start + index}` })),
@@ -65,7 +66,7 @@ describe('pickers', () => {
 		});
 		const responses = Array.from({ length: 11 }, (_, index) => page(index * 100));
 		const { context, http } = createLoadOptionsContext({ responses });
-		const options = await methods.loadOptions.getTemplates.call(context);
+		const options = await new DocSpringTrigger().methods.loadOptions.getTemplates.call(context);
 		assert.equal(options.length, 1000);
 		assert.equal(http.requests.length, 10);
 	});

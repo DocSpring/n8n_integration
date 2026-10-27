@@ -68,7 +68,7 @@ describe('webhook lifecycle', () => {
 
 	test('create leaves out the mode for live and test events, and can leave out submission data', async () => {
 		const { context, http } = createHookContext({
-			params: { events: ['template.created'], mode: 'all', options: { includeSubmissionData: false } },
+			params: { events: ['template.created'], mode: 'all', options: { includeSubmissionData: 'false' } },
 			responses: [{ statusCode: 201, body: { id: 'whk_2' } }],
 		});
 		await hooks.create.call(context);

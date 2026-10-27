@@ -162,7 +162,7 @@ export class DocSpringTrigger implements INodeType {
 				const body: IDataObject = {
 					url: this.getNodeWebhookUrl('default'),
 					event_types: this.getNodeParameter('events') as string[],
-					include_submission_data: options.includeSubmissionData !== false,
+					include_submission_data: String(options.includeSubmissionData ?? true).trim().toLowerCase() !== 'false',
 				};
 				const workflowName = this.getWorkflow().name;
 				body.name = workflowName ? `n8n: ${workflowName}`.slice(0, 255) : 'n8n';
