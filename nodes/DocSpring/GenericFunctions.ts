@@ -9,7 +9,7 @@ import type {
 	INode,
 	JsonObject,
 } from 'n8n-workflow';
-import { NodeApiError, NodeOperationError } from 'n8n-workflow';
+import { NodeApiError, NodeOperationError, sleep } from 'n8n-workflow';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 import { NO_API_V2_MESSAGE, USER_AGENT } from './version';
@@ -184,8 +184,31 @@ export function errorText(error: unknown): string {
 	return err?.description ? `${message}\n${err.description}` : message;
 }
 
-// Calls DocSpring API v2 with the credential's Basic auth. HTTP errors become a NodeApiError with DocSpring's
-// error message, details and request ID.
+// A 429 means DocSpring didn't process the request (test API tokens make 5 requests a minute, with bursts of 15),
+// so it's sent again after Retry-After, up to `maxRetries` times while each wait is `maxWaitSeconds` or less. Tests
+// replace `wait`.
+export const rateLimitRetry = {
+	maxRetries: 3,
+	maxWaitSeconds: 60,
+	wait: async (seconds: number): Promise<void> => await sleep(seconds * 1000),
+};
+
+// Retry-After in whole seconds, rounded up: at least 1, and 1 when it's missing or isn't a number.
+export function retryAfterSeconds(headers: unknown): number {
+	let value: unknown;
+	if (isObject(headers)) {
+		const key = Object.keys(headers).find((name) => name.toLowerCase() === 'retry-after');
+		value = key === undefined ? undefined : headers[key];
+	}
+	if (Array.isArray(value)) value = value[0];
+	const text = value === undefined || value === null ? '' : String(value).trim();
+	const seconds = Number(text);
+	if (!text || !Number.isFinite(seconds)) return 1;
+	return Math.max(1, Math.ceil(seconds));
+}
+
+// Calls DocSpring API v2 with the credential's Basic auth, retrying a 429 (see rateLimitRetry). HTTP errors become
+// a NodeApiError with DocSpring's error message, details and request ID.
 export async function docSpringApiRequest(
 	this: DocSpringContext,
 	request: ApiRequest,
@@ -207,15 +230,20 @@ export async function docSpringApiRequest(
 	if (request.body !== undefined) options.body = request.body;
 
 	let response: IN8nHttpFullResponse;
-	try {
-		response = (await this.helpers.httpRequestWithAuthentication.call(
-			this,
-			'docSpringApi',
-			options,
-		)) as IN8nHttpFullResponse;
-	} catch (error) {
-		if (error instanceof NodeApiError || error instanceof NodeOperationError) throw error;
-		throw new NodeApiError(node, error as JsonObject, { itemIndex });
+	for (let retries = 0; ; retries++) {
+		try {
+			response = (await this.helpers.httpRequestWithAuthentication.call(this, 'docSpringApi', {
+				...options,
+				headers: { ...options.headers },
+			})) as IN8nHttpFullResponse;
+		} catch (error) {
+			if (error instanceof NodeApiError || error instanceof NodeOperationError) throw error;
+			throw new NodeApiError(node, error as JsonObject, { itemIndex });
+		}
+		if (Number(response?.statusCode) !== 429 || retries >= rateLimitRetry.maxRetries) break;
+		const seconds = retryAfterSeconds(response.headers);
+		if (seconds > rateLimitRetry.maxWaitSeconds) break;
+		await rateLimitRetry.wait(seconds);
 	}
 
 	const status = Number(response?.statusCode);

@@ -819,3 +819,130 @@ describe('IDs in paths', () => {
 		assert.equal(requests[0].url, 'https://api.docspring.com/api/v2/submissions/..%2Ftemplates%2Ftpl_1');
 	});
 });
+
+describe('rate limits', () => {
+	const GenericFunctions = require('../dist/nodes/DocSpring/GenericFunctions.js');
+	const rateLimited = (retryAfter) => ({
+		statusCode: 429,
+		headers: retryAfter === undefined ? {} : { 'retry-after': retryAfter },
+		body: {
+			error: {
+				code: 'rate_limited',
+				message: 'This account has made too many API requests. Try again in 12 seconds (the Retry-After header).',
+				details: [],
+				request_id: 'req_429',
+			},
+		},
+	});
+	const generatePdfParams = {
+		resource: 'submission',
+		operation: 'generatePdf',
+		templateId: TEMPLATE,
+		templateVersion: '',
+		templateData: { value: { first_name: 'Jane' } },
+		test: true,
+		options: {},
+	};
+
+	// Records each wait instead of sleeping, so the suite stays fast.
+	async function withWaits(fn) {
+		const retry = GenericFunctions.rateLimitRetry || {};
+		const original = retry.wait;
+		const waits = [];
+		retry.wait = async (seconds) => {
+			waits.push(seconds);
+		};
+		try {
+			return await fn(waits);
+		} finally {
+			retry.wait = original;
+		}
+	}
+
+	test('a 429 waits for Retry-After (rounded up) and sends the same request again', async () => {
+		await withWaits(async (waits) => {
+			const { output, requests } = await run({
+				params: generatePdfParams,
+				responses: [rateLimited('2.3'), { statusCode: 201, body: submission() }],
+			});
+			assert.deepEqual(waits, [3]);
+			assert.equal(requests.length, 2);
+			assert.equal(requests[1].method, requests[0].method);
+			assert.equal(requests[1].url, requests[0].url);
+			assert.deepEqual(requests[1].qs, requests[0].qs);
+			assert.deepEqual(requests[1].body, requests[0].body);
+			assert.deepEqual(output, [submission()]);
+		});
+	});
+
+	test('waits 1 second when Retry-After is missing or 0, and fails with the API error after 3 retries', async () => {
+		await withWaits(async (waits) => {
+			const { context, http } = createExecuteContext({
+				params: generatePdfParams,
+				responses: [rateLimited(), rateLimited('0'), rateLimited(), rateLimited('1')],
+			});
+			await assert.rejects(new DocSpring().execute.call(context), (error) => {
+				assert.equal(error.constructor.name, 'NodeApiError');
+				assert.equal(error.httpCode, '429');
+				assert.match(error.message, /^DocSpring API error 429 rate_limited: This account has made too many API requests/);
+				assert.match(error.description, /Request ID: req_429/);
+				return true;
+			});
+			assert.equal(http.requests.length, 4);
+			assert.deepEqual(waits, [1, 1, 1]);
+		});
+	});
+
+	test("doesn't wait more than 60 seconds", async () => {
+		await withWaits(async (waits) => {
+			const { context, http } = createExecuteContext({
+				params: generatePdfParams,
+				responses: [rateLimited('61'), { statusCode: 201, body: submission() }],
+			});
+			await assert.rejects(new DocSpring().execute.call(context), /DocSpring API error 429 rate_limited/);
+			assert.equal(http.requests.length, 1);
+			assert.deepEqual(waits, []);
+		});
+	});
+
+	test("a signing link retries a 429, and still names the submission when it can't", async () => {
+		const params = {
+			resource: 'signatureRequest',
+			operation: 'create',
+			templateId: TEMPLATE,
+			templateVersion: '',
+			templateData: { value: {} },
+			signers: { signer: [{ email: 'jane@example.com', fields: ['signature'], authType: 'email_link' }] },
+			signingLinkType: 'email',
+			test: true,
+			options: {},
+		};
+		const created = submission({ id: 'sub_2', state: 'waiting_for_signature_requests', signature_requests: [{ id: 'srq_1' }] });
+		await withWaits(async (waits) => {
+			const { output, requests } = await run({
+				params,
+				responses: [
+					{ statusCode: 201, body: created },
+					rateLimited('12'),
+					{ statusCode: 201, body: { id: 't1', signature_request_url: 'https://app.docspring.com/sign/1' } },
+				],
+			});
+			assert.deepEqual(waits, [12]);
+			assert.equal(requests.length, 3);
+			assert.equal(output[0].first_signing_url, 'https://app.docspring.com/sign/1');
+		});
+		await withWaits(async () => {
+			await assert.rejects(
+				run({
+					params,
+					responses: [{ statusCode: 201, body: created }, rateLimited('5'), rateLimited('5'), rateLimited('5'), rateLimited('5')],
+				}),
+				(error) => {
+					assert.match(error.message, /DocSpring created submission sub_2, but couldn't create a signing link for signature request srq_1/);
+					assert.match(error.description, /DocSpring API error 429 rate_limited/);
+					return true;
+				},
+			);
+		});
+	});
+});

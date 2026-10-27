@@ -37,7 +37,7 @@ function lookupParameter(params, name, itemIndex, fallback, options, hasFallback
 	return value;
 }
 
-// A fake HTTP layer. `responses` are returned in order: { statusCode, body }.
+// A fake HTTP layer. `responses` are returned in order: { statusCode, headers, body }.
 function createHttp(responses = []) {
 	const queue = [...responses];
 	const requests = [];
@@ -46,7 +46,7 @@ function createHttp(responses = []) {
 		if (queue.length === 0) throw new Error(`No mocked response for ${options.method} ${options.url}`);
 		const next = queue.shift();
 		if (next instanceof Error) throw next;
-		return { statusCode: next.statusCode ?? 200, headers: {}, body: next.body };
+		return { statusCode: next.statusCode ?? 200, headers: next.headers ?? {}, body: next.body };
 	}
 	return { requests, httpRequestWithAuthentication, remaining: () => queue.length };
 }

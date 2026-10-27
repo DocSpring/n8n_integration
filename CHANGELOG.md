@@ -37,6 +37,7 @@
 - Checkbox fields in Template Data are Leave Blank, True or False, and start blank, so they're only sent when you set
   them.
 - IDs are encoded in request URLs, and an ID of `.` or `..` is rejected before any request.
+- A rate-limited request (429) is sent again after its Retry-After, up to 3 times when each wait is 60 seconds or less.
 
 ## 0.1.4 (2026-10-14)
 

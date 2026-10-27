@@ -65,6 +65,10 @@ a new node version (n8n keeps each saved node's `typeVersion`).
   `password_required`, `malformed_pdf`, `unknown_error` or `download_failed`; a generated file's `error`) fails with
   the state, `error_message` and the record ID.
 - **Lists** page with `limit` (up to 100) and `cursor` until Limit or every item (Return All). Pickers stop at 1,000.
+- **Rate limits.** A 429 means the request wasn't processed (test API tokens make 5 requests a minute, with bursts of
+  15), so the helper waits for `Retry-After` (seconds, rounded up, at least 1; 1 when it's missing) with n8n's `sleep`
+  and sends the same request again, up to 3 times while each wait is 60 seconds or less (`rateLimitRetry`). Then the
+  429 is the usual API error, so a signing link that still fails names the submission that was created.
 
 ## Operations
 

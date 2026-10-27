@@ -84,6 +84,12 @@ form that opened in time keeps working for 7 more days. The output adds `signing
 `signature_requests`, and `first_signature_request_id` and `first_signing_url` for workflows with one signer. Use
 **Create Signing Link** when a link has expired.
 
+### Rate limits
+
+When DocSpring answers that the account has made too many requests (test API tokens make 5 a minute, with bursts of
+15), the node waits as long as DocSpring says and tries again, up to 3 times, when each wait is a minute or less.
+Otherwise the step fails with DocSpring's message.
+
 ## Trigger
 
 **DocSpring Trigger** starts a workflow when a DocSpring event happens. Choose any of the events (submissions,
