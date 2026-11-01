@@ -41,6 +41,15 @@ describe('pickers', () => {
 		});
 	});
 
+	test('the template picker leaves out a search of only spaces, and trims the others', async () => {
+		const page = { body: { data: [], next_cursor: null } };
+		const { context, http } = createLoadOptionsContext({ responses: [page, page] });
+		await methods.listSearch.searchTemplates.call(context, '   ');
+		await methods.listSearch.searchTemplates.call(context, ' lease ');
+		assert.deepEqual(http.requests[0].qs, { limit: 100 });
+		assert.deepEqual(http.requests[1].qs, { limit: 100, query: 'lease' });
+	});
+
 	test('the folder pickers page through every folder and show paths, with a root option where it applies', async () => {
 		const { context, http } = createLoadOptionsContext({
 			responses: [

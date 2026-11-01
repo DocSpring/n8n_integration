@@ -45,7 +45,8 @@ doesn't have API v2 yet, upgrade DocSpring, or install version 0.1.4 of this nod
   - **Combine PDFs**: merge submissions, combined PDFs, templates, custom files and URLs into one PDF.
   - **Get** a combined PDF.
 - **Signature Request**
-  - **Create**: create a submission that waits for people to fill in and sign it, with a signing link for each signer.
+  - **Create**: create a submission that waits for people to fill in and sign it. DocSpring emails each signer their
+    link, or you send the links yourself.
   - **Create Signing Link**: create a new link for a signature request.
   - **Get** a signature request.
 - **Template**
@@ -79,10 +80,24 @@ chose, or the latest), or set them with an expression.
 **Authentication** says how your app checked who the person is (Email Link by default); OAuth also needs an **Auth
 Provider**, such as `google`. Set **Role** (`Signer 1`, `Signer 2`, …) for every signer or for none.
 
-**Signing Links** creates a link for each signer: an **email link** lasts 7 days and an **API link** 24 hours, and a
-form that opened in time keeps working for 7 more days. The output adds `signing_url` to each item in
-`signature_requests`, and `first_signature_request_id` and `first_signing_url` for workflows with one signer. Use
-**Create Signing Link** when a link has expired.
+**Emails to Signers** says who sends each signer their link:
+
+- **DocSpring Emails Each Signer Their Link** (the default): DocSpring emails each signer a link to sign, any
+  reminders, and the signed PDF once everyone has signed. Each signer needs an **Email**. In **Email Options** you can
+  set the subject, a message, CC addresses, reminders, the reply-to address, notification emails and a notification
+  each time someone signs. The node makes no signing links, so a workflow can't send a second one: `signing_url` is
+  `null`. A test submission only emails members of your DocSpring team.
+- **I Send the Links, or Open Them in My App**: **Signing Links** creates a link for each signer: an **email link**
+  lasts 7 days and an **API link** 24 hours, and a form that opened in time keeps working for 7 more days. The output
+  adds `signing_url` to each item in `signature_requests`, and `first_signature_request_id` and `first_signing_url`
+  for workflows with one signer. Use **Create Signing Link** when a link has expired. DocSpring doesn't email the
+  signers of a form library template: choose this for one.
+
+**Signing Order** is **Everyone at Once** or **One Step at a Time**: people sign in the order of their **Signing Step**
+(set it for every signer or for none), or of the signers. DocSpring emails each step when the one before it is done;
+when you send the links, send each step's once the step before it has signed.
+
+**Check Data** takes the same settings with its signers, so it checks what Create will send.
 
 ### Rate limits
 

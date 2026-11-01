@@ -81,7 +81,7 @@ a new node version (n8n keeps each saved node's `typeVersion`).
 | | Expire | `DELETE /submissions/{id}` |
 | Submission Batch | Create / Get | `POST /submissions/batches` (sync) / `GET /submissions/batches/{id}` |
 | Combined PDF | Combine PDFs / Get | `POST /combined_pdfs` (sync) / `GET /combined_pdfs/{id}` |
-| Signature Request | Create | `POST /templates/{id}/submissions` with `signature_requests` (standard host), then `POST /signature_requests/{id}/tokens` per signer |
+| Signature Request | Create | `POST /templates/{id}/submissions` with `signature_requests` (standard host), then, when you send the links, `POST /signature_requests/{id}/tokens` per signer |
 | | Create Signing Link / Get | `POST /signature_requests/{id}/tokens` (`type` in the body) / `GET /signature_requests/{id}` |
 | Template | Create | `POST /templates` (sync; `document_url`, or `document_base64` + `filename` from a binary field, up to 7 MB) |
 | | Get / Get Many | `GET /templates/{id}` / `GET /templates` (`query`, `parent_folder_id`) |
@@ -95,6 +95,14 @@ Responses are the API v2 resources as returned. Get Many operations output one i
 Many: one per field). Create Signature Request adds `signing_url` to each signature request, plus
 `first_signature_request_id` and `first_signing_url`; if a link can't be created, the error names the submission
 that was created so the user doesn't create it twice.
+
+Emails to Signers (`sendEmail`: `docspring`, the default as in the API, or `self`) is always sent as `send_email: true`
+or `false`, with the signing order. With DocSpring's emails, Email Options (subject, message, CC, reminders, reply-to,
+notification emails, notify when signed) are sent only when they have a value: the API refuses blank ones, and refuses
+them all when it emails nobody. Create then makes no tokens and each `signing_url` is null, since a link would let a
+workflow send each signer a second email. It's one choice for every signer: the API's per-signer `send_email` isn't
+offered (a mix would need links for only some of them). Signing Links shows only with `self`. Check Data offers the
+same settings (`signerEmailFields`) and sends them only with its signers, since the API refuses them without.
 
 ### Parameters and pickers
 

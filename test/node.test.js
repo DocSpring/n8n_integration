@@ -312,8 +312,42 @@ describe('Submission: other operations', () => {
 			data: { first_name: 'Jane' },
 			test: true,
 			signature_requests: [{ fields: ['signature', 'date'], auth_type: 'email_link', email: 'jane@example.com' }],
+			send_email: true,
 		});
 		assert.deepEqual(output, [result]);
+	});
+
+	test('Check Data checks the email settings Create Signature Request sends, only with signers', async () => {
+		const params = {
+			resource: 'submission',
+			operation: 'checkData',
+			templateId: TEMPLATE,
+			templateVersion: '',
+			templateData: { value: {} },
+			test: false,
+			signingOrder: 'sequential',
+			emailOptions: { emailSubject: 'Please sign', reminders: { reminder: { intervalDays: 3, maxCount: 2 } } },
+		};
+		const signers = { signer: [{ email: 'jane@example.com', fields: ['signature'], authType: 'email_link' }] };
+		const ok = { body: { valid: true } };
+		const docspring = await run({ params: { ...params, signers }, responses: [ok] });
+		assert.deepEqual(docspring.requests[0].body, {
+			data: {},
+			signature_requests: [{ fields: ['signature'], auth_type: 'email_link', email: 'jane@example.com' }],
+			send_email: true,
+			signing_order: 'sequential',
+			email_subject: 'Please sign',
+			reminders: { interval_days: 3, max_count: 2 },
+		});
+		const self = await run({ params: { ...params, signers, sendEmail: 'self' }, responses: [ok] });
+		assert.deepEqual(self.requests[0].body, {
+			data: {},
+			signature_requests: [{ fields: ['signature'], auth_type: 'email_link', email: 'jane@example.com' }],
+			send_email: false,
+			signing_order: 'sequential',
+		});
+		const noSigners = await run({ params, responses: [ok] });
+		assert.deepEqual(noSigners.requests[0].body, { data: {} });
 	});
 
 	test('Generate Files asks the sync host for the formats and fails when one could not be made', async () => {
@@ -466,6 +500,7 @@ describe('Signature Request', () => {
 				{ email: 'sam@example.com', fields: 'initials', authType: 'oauth', authProvider: 'google' },
 			],
 		},
+		sendEmail: 'self',
 		signingLinkType: 'email',
 		test: false,
 		options: {},
@@ -477,7 +512,7 @@ describe('Signature Request', () => {
 		signature_requests: [{ id: 'srq_1' }, { id: 'srq_2' }],
 	});
 
-	test('creates the submission on the standard host, then a signing link for each signer', async () => {
+	test('creates the submission on the standard host and, when you send the links, a signing link for each signer', async () => {
 		const { output, requests } = await run({
 			params: createParams(),
 			responses: [
@@ -500,6 +535,7 @@ describe('Signature Request', () => {
 				},
 				{ fields: ['initials'], auth_type: 'oauth', email: 'sam@example.com', auth_provider: 'google' },
 			],
+			send_email: false,
 		});
 		assert.equal(requests[1].url, 'https://api.docspring.com/api/v2/signature_requests/srq_1/tokens');
 		assert.deepEqual(requests[1].body, { type: 'email' });
@@ -531,6 +567,106 @@ describe('Signature Request', () => {
 		});
 		assert.equal(requests.length, 1);
 		assert.equal(output[0].first_signing_url, null);
+	});
+
+	test('lets DocSpring email the signers by default, and makes no signing links', async () => {
+		const params = createParams({
+			signers: {
+				signer: [
+					{ email: 'jane@example.com', fields: ['signature'], authType: 'email_link' },
+					{ email: 'sam@example.com', fields: ['initials'], authType: 'email_link' },
+				],
+			},
+		});
+		delete params.sendEmail;
+		const { output, requests } = await run({ params, responses: [{ statusCode: 201, body: created }] });
+		assert.equal(requests.length, 1);
+		assert.equal(requests[0].body.send_email, true);
+		assert.deepEqual(
+			output[0].signature_requests.map((request) => request.signing_url),
+			[null, null],
+		);
+		assert.equal(output[0].first_signature_request_id, 'srq_1');
+		assert.equal(output[0].first_signing_url, null);
+	});
+
+	test("sends DocSpring's email options, the signing order and each signer's step, leaving out empty ones", async () => {
+		const { requests } = await run({
+			params: createParams({
+				sendEmail: 'docspring',
+				signingOrder: 'sequential',
+				emailOptions: {
+					emailSubject: ' Please sign {{ document.name }} ',
+					emailMessage: 'Sign by Friday.',
+					cc: 'records@example.com, legal@example.com',
+					replyTo: ' ',
+					notificationEmails: '',
+					notifyWhenSigned: true,
+					reminders: { reminder: { intervalDays: 3, maxCount: 2 } },
+				},
+				signers: {
+					signer: [
+						{ email: 'jane@example.com', fields: ['signature'], authType: 'email_link', signingStep: 1 },
+						{ email: 'sam@example.com', fields: ['initials'], authType: 'email_link', signingStep: 2 },
+					],
+				},
+			}),
+			responses: [{ statusCode: 201, body: created }],
+		});
+		assert.equal(requests.length, 1);
+		assert.deepEqual(requests[0].body, {
+			data: { company: 'Acme' },
+			signature_requests: [
+				{ fields: ['signature'], auth_type: 'email_link', signing_step: 1, email: 'jane@example.com' },
+				{ fields: ['initials'], auth_type: 'email_link', signing_step: 2, email: 'sam@example.com' },
+			],
+			send_email: true,
+			signing_order: 'sequential',
+			email_subject: 'Please sign {{ document.name }}',
+			email_message: 'Sign by Friday.',
+			cc: ['records@example.com', 'legal@example.com'],
+			notify_when_signed: true,
+			reminders: { interval_days: 3, max_count: 2 },
+		});
+	});
+
+	test("leaves out DocSpring's email options when you send the links, which the API refuses then", async () => {
+		const { requests } = await run({
+			params: createParams({
+				signingOrder: 'sequential',
+				signingLinkType: 'none',
+				emailOptions: { emailSubject: 'Left over', cc: 'records@example.com', notifyWhenSigned: true },
+				signers: { signer: [{ fields: ['signature'], authType: 'password', signingStep: 0 }] },
+			}),
+			responses: [{ statusCode: 201, body: created }],
+		});
+		assert.deepEqual(requests[0].body, {
+			data: { company: 'Acme' },
+			signature_requests: [{ fields: ['signature'], auth_type: 'password' }],
+			send_email: false,
+			signing_order: 'sequential',
+		});
+	});
+
+	test('refuses an unknown Emails to Signers value before sending anything', async () => {
+		await assert.rejects(
+			run({ params: createParams({ sendEmail: 'yes' }) }),
+			/Emails to Signers must be docspring or self, not "yes"/,
+		);
+	});
+
+	test("shows DocSpring's email options only with its emails, and the link type only when you send the links", () => {
+		const { properties } = new DocSpring().description;
+		const create = properties.filter(
+			(p) => p.displayOptions?.show?.resource?.[0] === 'signatureRequest' && p.displayOptions?.show?.operation?.[0] === 'create',
+		);
+		const byName = Object.fromEntries(create.map((p) => [p.name, p]));
+		assert.equal(byName.sendEmail.default, 'docspring');
+		assert.deepEqual(byName.emailOptions.displayOptions.show.sendEmail, ['docspring']);
+		assert.deepEqual(byName.signingLinkType.displayOptions.show.sendEmail, ['self']);
+		assert.equal(byName.signingOrder.displayOptions.show.sendEmail, undefined);
+		const signerValues = byName.signers.options[0].values.map((value) => value.name);
+		assert.ok(signerValues.includes('signingStep'));
 	});
 
 	test('requires fields for each signer, and a provider for OAuth', async () => {
@@ -913,6 +1049,7 @@ describe('rate limits', () => {
 			templateVersion: '',
 			templateData: { value: {} },
 			signers: { signer: [{ email: 'jane@example.com', fields: ['signature'], authType: 'email_link' }] },
+			sendEmail: 'self',
 			signingLinkType: 'email',
 			test: true,
 			options: {},

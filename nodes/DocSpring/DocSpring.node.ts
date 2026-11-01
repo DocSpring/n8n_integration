@@ -138,7 +138,9 @@ export class DocSpring implements INodeType {
 				paginationToken?: string,
 			): Promise<INodeListSearchResult> {
 				const qs: IDataObject = { limit: PAGE_SIZE };
-				if (filter) qs.query = filter;
+				// The API refuses a query that's only spaces.
+				const query = filter?.trim();
+				if (query) qs.query = query;
 				if (paginationToken) qs.cursor = paginationToken;
 				const page = (await docSpringApiRequest.call(this, { method: 'GET', path: '/templates', qs })) as IDataObject;
 				const templates = Array.isArray(page?.data) ? (page.data as IDataObject[]) : [];

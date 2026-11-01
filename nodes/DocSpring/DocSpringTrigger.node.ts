@@ -32,6 +32,8 @@ export const EVENTS = [
 	{ name: 'Folder Updated', value: 'folder.updated' },
 	{ name: 'Signature Request Completed', value: 'signature_request.completed' },
 	{ name: 'Signature Request Declined', value: 'signature_request.declined' },
+	{ name: 'Signature Request Email Bounced', value: 'signature_request.email_bounced' },
+	{ name: 'Signature Request Sent', value: 'signature_request.sent' },
 	{ name: 'Signature Request Updated', value: 'signature_request.updated' },
 	{ name: 'Signature Request Viewed', value: 'signature_request.viewed' },
 	{ name: 'Submission Batch Failed', value: 'submission_batch.failed' },

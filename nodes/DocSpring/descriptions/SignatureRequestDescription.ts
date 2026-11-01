@@ -3,6 +3,7 @@ import type { INodeProperties } from 'n8n-workflow';
 import {
 	expiresInOption,
 	metadataOption,
+	signerEmailFields,
 	signersField,
 	submissionTemplateVersion,
 	templateDataMapper,
@@ -22,7 +23,8 @@ export const signatureRequestOperations: INodeProperties[] = [
 				name: 'Create',
 				value: 'create',
 				action: 'Create a signature request',
-				description: 'Create a submission that waits for people to fill in and sign it, with a signing link for each',
+				description:
+					'Create a submission that waits for people to fill in and sign it. DocSpring emails each of them a link to sign, or you get a signing link for each.',
 			},
 			{
 				name: 'Create Signing Link',
@@ -49,6 +51,7 @@ export const signatureRequestFields: INodeProperties[] = [
 	submissionTemplateVersion(create),
 	templateDataMapper(create, true),
 	signersField(create, true),
+	...signerEmailFields(create),
 	{
 		displayName: 'Signing Links',
 		name: 'signingLinkType',
@@ -65,7 +68,7 @@ export const signatureRequestFields: INodeProperties[] = [
 		default: 'email',
 		description:
 			'The signing link to create for each signer, added to the output as signing_url. A form that opened in time keeps working for 7 more days.',
-		displayOptions: { show: create },
+		displayOptions: { show: { ...create, sendEmail: ['self'] } },
 	},
 	testField(create),
 	{

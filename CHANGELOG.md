@@ -1,6 +1,22 @@
 # Changelog
 
-## 1.0.0 (unreleased)
+## 1.1.0 (unreleased)
+
+Needs the DocSpring release in which DocSpring emails signers (sc-2878); until it's live, API v2 refuses `send_email`,
+so every Create Signature Request would fail.
+
+- **Emails to Signers** on Signature Request → Create: DocSpring emails each signer a link to sign (the default, as in
+  the API), with any reminders and the signed PDF once everyone has signed; or you send the links yourself. With
+  DocSpring's emails you can set the subject, a message, CC addresses, reminders, the reply-to address, notification
+  emails and a notification each time someone signs, and the node makes no signing links, so a workflow can't send a
+  second one. Sending the links yourself works as before, with the same link types and every authentication type.
+- **Signing Order** (everyone at once, or one step at a time) and each signer's **Signing Step**, either way.
+- **Check Data** checks the same settings with its signers.
+- **Trigger:** the `signature_request.sent` (DocSpring first emailed someone their link) and
+  `signature_request.email_bounced` events.
+- The template picker leaves out a search of only spaces, which API v2 refuses.
+
+## 1.0.0
 
 - **DocSpring API v2.** Every operation calls [API v2](https://docspring.com/docs/api-guide/migrating-to-api-v2/),
   and the trigger creates version 4 webhooks. Outputs are API v2 resources: a submission's PDF link is

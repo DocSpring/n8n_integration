@@ -5,6 +5,7 @@ import {
 	metadataOption,
 	passwordOption,
 	returnAllAndLimit,
+	signerEmailFields,
 	signersField,
 	submissionTemplateVersion,
 	templateDataMapper,
@@ -75,6 +76,7 @@ export const submissionFields: INodeProperties[] = [
 	templateDataMapper(checkData, true),
 	testField({ resource: ['submission'], operation: ['generatePdf', 'checkData'] }),
 	signersField(checkData, false),
+	...signerEmailFields(checkData),
 	{
 		displayName: 'Options',
 		name: 'options',
