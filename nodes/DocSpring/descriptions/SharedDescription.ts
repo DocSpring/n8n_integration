@@ -118,7 +118,7 @@ export function signerEmailFields(show: Show): INodeProperties[] {
 			],
 			default: 'docspring',
 			description:
-				"DocSpring emails each signer a link to sign, any reminders, and the signed PDF once everyone has signed. A test submission only emails members of your DocSpring team. DocSpring doesn't email the signers of a form library template: choose I send the links for one.",
+				"DocSpring emails each signer a link to sign, any reminders, and the signed PDF once everyone has signed. A test submission can only email members of your DocSpring team: other addresses are refused. DocSpring doesn't email the signers of a form library template: choose I send the links for one.",
 			displayOptions: { show },
 		},
 		{
@@ -131,7 +131,7 @@ export function signerEmailFields(show: Show): INodeProperties[] {
 			],
 			default: 'parallel',
 			description:
-				"One step at a time: people sign in the order of their Signing Step, or of the Signers list. DocSpring emails each step when the one before it is done; when you send the links, send each step's once the step before it has signed.",
+				"One step at a time: people sign in the order of their Signing Step, or of the Signers list. DocSpring emails each step when the one before it is done. When you send the links, send each step's once the step before it has signed, and make a new one with Signature Request → Create Signing Link if it has expired (email links last 7 days, API links 24 hours).",
 			displayOptions: { show },
 		},
 		{

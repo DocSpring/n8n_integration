@@ -94,7 +94,11 @@ export const submissionFields: INodeProperties[] = [
 				description:
 					"Whether the PDF's text and check fields stay fillable. Left out, the template's setting decides.",
 			},
-			passwordOption,
+			{
+				...passwordOption,
+				description:
+					"A passphrase that the PDF needs to be opened with. A submission with a passphrase can't make a Word document or OpenDocument file.",
+			},
 			expiresInOption,
 			{
 				displayName: 'Field Overrides',
@@ -112,7 +116,7 @@ export const submissionFields: INodeProperties[] = [
 				options: outputFormatOptions,
 				default: ['pdf'],
 				description:
-					'What the submission makes. Leave this option out for what the template makes: the PDF, or what a Word template is set to make.',
+					"What the submission makes. Leave this option out for what the template makes: the PDF, or what a Word template is set to make. A submission with a PDF passphrase can't make the Word document or OpenDocument file.",
 			},
 			waitOption(
 				'Wait for PDF',

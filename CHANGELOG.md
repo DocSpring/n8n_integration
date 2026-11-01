@@ -2,8 +2,9 @@
 
 ## 1.1.0 (unreleased)
 
-Needs the DocSpring release in which DocSpring emails signers (sc-2878); until it's live, API v2 refuses `send_email`,
-so every Create Signature Request would fail.
+Needs a DocSpring release that emails signers: older releases refuse `send_email`, so Signature Request → Create, and
+Check Data with signers, would fail on them. Self-hosted (Enterprise) installs need that release too; until then, keep
+using 1.0.0.
 
 - **Emails to Signers** on Signature Request → Create: DocSpring emails each signer a link to sign (the default, as in
   the API), with any reminders and the signed PDF once everyone has signed; or you send the links yourself. With
@@ -18,6 +19,7 @@ so every Create Signature Request would fail.
   document and OpenDocument file (`files.docx`, `files.odt`), and Generate Files can add them, or a PDF, to a Word
   template's processed submission.
 - The template picker leaves out a search of only spaces, which API v2 refuses.
+- CC and Notification Emails send each address once (the API refuses a list with repeats).
 
 ## 1.0.0
 

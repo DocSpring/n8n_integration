@@ -610,7 +610,7 @@ describe('Signature Request', () => {
 		assert.equal(output[0].first_signing_url, null);
 	});
 
-	test("sends DocSpring's email options, the signing order and each signer's step, leaving out empty ones", async () => {
+	test("sends DocSpring's email options, the signing order and each signer's step, leaving out empty ones and repeated addresses", async () => {
 		const { requests } = await run({
 			params: createParams({
 				sendEmail: 'docspring',
@@ -618,9 +618,9 @@ describe('Signature Request', () => {
 				emailOptions: {
 					emailSubject: ' Please sign {{ document.name }} ',
 					emailMessage: 'Sign by Friday.',
-					cc: 'records@example.com, legal@example.com',
+					cc: 'records@example.com, legal@example.com, records@example.com',
 					replyTo: ' ',
-					notificationEmails: '',
+					notificationEmails: 'ops@example.com\nops@example.com',
 					notifyWhenSigned: true,
 					reminders: { reminder: { intervalDays: 3, maxCount: 2 } },
 				},
@@ -645,6 +645,7 @@ describe('Signature Request', () => {
 			email_subject: 'Please sign {{ document.name }}',
 			email_message: 'Sign by Friday.',
 			cc: ['records@example.com', 'legal@example.com'],
+			notification_emails: ['ops@example.com'],
 			notify_when_signed: true,
 			reminders: { interval_days: 3, max_count: 2 },
 		});

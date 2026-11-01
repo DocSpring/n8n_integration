@@ -26,8 +26,9 @@ Self-Hosted / Enterprise) and paste the token ID and secret. They're sent with H
 
 A test API token only makes free test PDFs (with a watermark), so you can build a workflow without using credits.
 
-**Self-hosted DocSpring:** this version needs a DocSpring release with API v2. If the credential test says the server
-doesn't have API v2 yet, upgrade DocSpring, or install version 0.1.4 of this node until you can.
+**Self-hosted DocSpring:** this version needs a DocSpring release with API v2 that emails signers. If the credential
+test says the server doesn't have API v2 yet, upgrade DocSpring, or install version 0.1.4 of this node until you can.
+With API v2 but an older release, install version 1.0.0: this version's Signature Request → Create fails there.
 
 ## Operations
 
@@ -88,7 +89,7 @@ Provider**, such as `google`. Set **Role** (`Signer 1`, `Signer 2`, …) for eve
   reminders, and the signed PDF once everyone has signed. Each signer needs an **Email**. In **Email Options** you can
   set the subject, a message, CC addresses, reminders, the reply-to address, notification emails and a notification
   each time someone signs. The node makes no signing links, so a workflow can't send a second one: `signing_url` is
-  `null`. A test submission only emails members of your DocSpring team.
+  `null`. A test submission can only email members of your DocSpring team: other addresses are refused.
 - **I Send the Links, or Open Them in My App**: **Signing Links** creates a link for each signer: an **email link**
   lasts 7 days and an **API link** 24 hours, and a form that opened in time keeps working for 7 more days. The output
   adds `signing_url` to each item in `signature_requests`, and `first_signature_request_id` and `first_signing_url`
@@ -96,8 +97,9 @@ Provider**, such as `google`. Set **Role** (`Signer 1`, `Signer 2`, …) for eve
   signers of a form library template: choose this for one.
 
 **Signing Order** is **Everyone at Once** or **One Step at a Time**: people sign in the order of their **Signing Step**
-(set it for every signer or for none), or of the signers. DocSpring emails each step when the one before it is done;
-when you send the links, send each step's once the step before it has signed.
+(set it for every signer or for none), or of the signers. DocSpring emails each step when the one before it is done.
+When you send the links, send each step's once the step before it has signed, and make a new one with **Create Signing
+Link** if it has expired.
 
 **Check Data** takes the same settings with its signers, so it checks what Create will send.
 

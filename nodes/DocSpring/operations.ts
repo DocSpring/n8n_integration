@@ -374,10 +374,11 @@ function emailSettings(ctx: IExecuteFunctions, i: number): IDataObject {
 	const text = (value: unknown) => (value === undefined || value === null ? '' : String(value).trim());
 	if (text(options.emailSubject)) body.email_subject = text(options.emailSubject);
 	if (text(options.emailMessage)) body.email_message = text(options.emailMessage);
-	const cc = parseList(options.cc);
+	// Each address once: the API refuses a list with repeats.
+	const cc = [...new Set(parseList(options.cc))];
 	if (cc.length) body.cc = cc;
 	if (text(options.replyTo)) body.reply_to = text(options.replyTo);
-	const notificationEmails = parseList(options.notificationEmails);
+	const notificationEmails = [...new Set(parseList(options.notificationEmails))];
 	if (notificationEmails.length) body.notification_emails = notificationEmails;
 	if (options.notifyWhenSigned !== undefined) {
 		body.notify_when_signed = toBoolean(options.notifyWhenSigned, 'Notify When Each Person Signs', node, i);
