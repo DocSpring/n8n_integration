@@ -368,6 +368,26 @@ describe('Submission: other operations', () => {
 		assert.deepEqual(requests[0].body, { formats: ['png'] });
 	});
 
+	test("offers a Word template's Word document and OpenDocument file wherever it asks for formats", async () => {
+		const { properties } = new DocSpring().description;
+		const values = (property) => property.options.map((option) => option.value).sort();
+		const optionsOf = (resource) =>
+			properties.find((p) => p.name === 'options' && p.displayOptions?.show?.resource?.[0] === resource && p.options.some((o) => o.name === 'outputFormats'));
+		for (const resource of ['submission', 'submissionBatch']) {
+			const outputFormats = optionsOf(resource).options.find((o) => o.name === 'outputFormats');
+			assert.deepEqual(values(outputFormats), ['docx', 'odt', 'pdf', 'png']);
+		}
+		const formats = properties.find((p) => p.name === 'formats' && p.displayOptions?.show?.operation?.[0] === 'generateFiles');
+		assert.deepEqual(values(formats), ['docx', 'odt', 'pdf', 'png']);
+		assert.deepEqual(formats.default, ['png']);
+
+		const generated = await run({
+			params: { resource: 'submission', operation: 'generateFiles', submissionId: 'sub_1', formats: ['docx', 'odt'], options: {} },
+			responses: [{ body: submission({ files: { docx: { state: 'processed' }, odt: { state: 'processed' } } }) }],
+		});
+		assert.deepEqual(generated.requests[0].body, { formats: ['docx', 'odt'] });
+	});
+
 	test('Expire deletes the submission', async () => {
 		const { requests } = await run({
 			params: { resource: 'submission', operation: 'expire', submissionId: 'sub_1' },

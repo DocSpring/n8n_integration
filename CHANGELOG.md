@@ -14,6 +14,9 @@ so every Create Signature Request would fail.
 - **Check Data** checks the same settings with its signers.
 - **Trigger:** the `signature_request.sent` (DocSpring first emailed someone their link) and
   `signature_request.email_bounced` events.
+- **Word templates:** Output Formats on Generate PDF and Submission Batch → Create offers a Word template's Word
+  document and OpenDocument file (`files.docx`, `files.odt`), and Generate Files can add them, or a PDF, to a Word
+  template's processed submission.
 - The template picker leaves out a search of only spaces, which API v2 refuses.
 
 ## 1.0.0

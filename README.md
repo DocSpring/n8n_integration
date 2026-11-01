@@ -32,11 +32,13 @@ doesn't have API v2 yet, upgrade DocSpring, or install version 0.1.4 of this nod
 ## Operations
 
 - **Submission**
-  - **Generate PDF**: fill in a template with data and generate a PDF (and PNG page images if you ask for them).
+  - **Generate PDF**: fill in a template with data and generate a PDF (and PNG page images if you ask for them). A
+    Word template can also make its Word document and an OpenDocument file (`files.docx`, `files.odt`).
   - **Check Data**: check data, and optionally signers, against a template's fields without generating anything or
     using credits.
   - **Get** a submission, or **Get Many** (by template, live or test, and creation date).
-  - **Generate Files**: add PNG page images to a submission that has been processed.
+  - **Generate Files**: add PNG page images to a submission that has been processed, or a Word template
+    submission's PDF, Word document or OpenDocument file.
   - **Expire**: delete a submission's data and files now.
 - **Submission Batch**
   - **Create**: generate up to 50 PDFs in one request (the submissions are a JSON array).

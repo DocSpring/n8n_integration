@@ -420,6 +420,19 @@ export function waitOption(displayName: string, description: string): INodePrope
 	};
 }
 
+// The files a submission can make. Word documents and OpenDocument files come only from Word templates (the API
+// refuses them for others), and PNG page images bring the PDF with them.
+export const outputFormatOptions = [
+	{
+		name: 'OpenDocument File (Word Templates)',
+		value: 'odt',
+		description: "An OpenDocument file (.odt) converted from a Word template's Word document",
+	},
+	{ name: 'PDF', value: 'pdf' },
+	{ name: 'PNG Page Images', value: 'png', description: 'An image of each page of the PDF, up to 100 pages' },
+	{ name: 'Word Document (Word Templates)', value: 'docx', description: 'The filled-in Word document (.docx)' },
+];
+
 export const metadataOption: INodeProperties = {
 	displayName: 'Metadata',
 	name: 'metadata',

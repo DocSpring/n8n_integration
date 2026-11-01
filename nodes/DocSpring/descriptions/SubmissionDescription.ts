@@ -3,6 +3,7 @@ import type { INodeProperties } from 'n8n-workflow';
 import {
 	expiresInOption,
 	metadataOption,
+	outputFormatOptions,
 	passwordOption,
 	returnAllAndLimit,
 	signerEmailFields,
@@ -38,7 +39,7 @@ export const submissionOperations: INodeProperties[] = [
 				name: 'Generate Files',
 				value: 'generateFiles',
 				action: 'Generate files for a submission',
-				description: "Add PNG images of a processed submission's pages",
+				description: "Add PNG images of a processed submission's pages, or a Word template submission's other files",
 			},
 			{
 				name: 'Generate PDF',
@@ -108,12 +109,10 @@ export const submissionFields: INodeProperties[] = [
 				displayName: 'Output Formats',
 				name: 'outputFormats',
 				type: 'multiOptions',
-				options: [
-					{ name: 'PDF', value: 'pdf' },
-					{ name: 'PNG Page Images', value: 'png', description: 'An image of each page, up to 100 pages' },
-				],
+				options: outputFormatOptions,
 				default: ['pdf'],
-				description: 'What the submission makes',
+				description:
+					'What the submission makes. Leave this option out for what the template makes: the PDF, or what a Word template is set to make.',
 			},
 			waitOption(
 				'Wait for PDF',
@@ -137,9 +136,10 @@ export const submissionFields: INodeProperties[] = [
 		name: 'formats',
 		type: 'multiOptions',
 		required: true,
-		options: [{ name: 'PNG Page Images', value: 'png', description: 'An image of each page, up to 100 pages' }],
+		options: outputFormatOptions,
 		default: ['png'],
-		description: "The formats to add to the submission's files",
+		description:
+			"The formats to add to the submission's files. PDF, Word Document and OpenDocument File are for the submissions of Word templates.",
 		displayOptions: { show: generateFiles },
 	},
 	{
