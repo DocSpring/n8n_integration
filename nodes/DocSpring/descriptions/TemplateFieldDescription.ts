@@ -51,7 +51,7 @@ export const templateFieldFields: INodeProperties[] = [
 		required: true,
 		default: '[]',
 		description:
-			'A JSON array of fields to add, such as [{"name": "first_name", "type": "string", "page": 1, "x": 100, "y": 200, "width": 600, "height": 60}]. Settings left out have their defaults.',
+			'A JSON array of fields to add, such as [{"name": "first_name", "type": "string", "page": 1, "x": 100, "y": 200, "width": 600, "height": 60}]. Settings left out have their defaults. A field with the name of one of the template\'s fields shares its settings (type, required, default and others): leave them out or give the same values, and change them for every field with the name with Update.',
 		displayOptions: { show: show('add') },
 	},
 	{
