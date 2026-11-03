@@ -23,6 +23,7 @@ using 1.0.0.
 - **Options:** Template Version is in each operation's Options; Template → Create's SCSS, Header HTML and Footer
   HTML and Publish Version's Description are in their Options; Submission → Get Many's template is a filter. n8n's
   review of community nodes asks for optional inputs there.
+- Template → Create shows Filename only for a PDF template (an HTML template has no PDF to name).
 - The node's subtitle on the canvas is its operation and resource (such as `generatePdf: submission`), as n8n's
   review asks.
 

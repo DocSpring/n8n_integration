@@ -1132,6 +1132,21 @@ describe("n8n's layout rules", () => {
 		}
 	});
 
+	test("Template Create's options show only the ones for its template type", () => {
+		const { NodeHelpers } = require('n8n-workflow');
+		const description = new DocSpring().description;
+		const options = topLevel('template', 'create').find((p) => p.name === 'options');
+		const shown = (templateType) =>
+			options.options
+				.filter((option) =>
+					NodeHelpers.displayParameterPath({ resource: 'template', operation: 'create', templateType, options: {} }, option, 'options', null, description),
+				)
+				.map((option) => option.name)
+				.sort();
+		assert.deepEqual(shown('html'), ['folderId', 'footerHtml', 'headerHtml', 'scss', 'wait']);
+		assert.deepEqual(shown('pdf'), ['filename', 'folderId', 'wait']);
+	});
+
 	test('the template data picker follows the Template Version option', () => {
 		const mapper = topLevel('submission', 'generatePdf').find((p) => p.name === 'templateData');
 		assert.deepEqual(mapper.typeOptions.loadOptionsDependsOn, ['templateId.value', 'options.templateVersion']);

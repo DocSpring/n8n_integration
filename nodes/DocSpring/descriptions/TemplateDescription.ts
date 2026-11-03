@@ -215,6 +215,7 @@ export const templateFields: INodeProperties[] = [
 				default: '',
 				placeholder: 'form.pdf',
 				description: "The PDF's file name. Left out, it's the binary file's name or the last part of the URL.",
+				displayOptions: { show: { '/templateType': ['pdf'] } },
 			},
 			folderOptionsField('Folder Name or ID', 'folderId', 'The folder to create the template in', false),
 			{
