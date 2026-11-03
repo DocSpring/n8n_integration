@@ -31,32 +31,47 @@ export function templateLocator(show: Show, options: { required?: boolean; descr
 	return property;
 }
 
-// The template version for operations that create or check a submission. API v2 uses the latest published
-// version when it's left out (the draft when none has been published).
-export function submissionTemplateVersion(show: Show): INodeProperties {
-	return {
-		displayName: 'Template Version',
-		name: 'templateVersion',
-		type: 'string',
-		default: '',
-		placeholder: 'latest',
-		description:
-			'Leave empty for the latest published version (the draft when none has been published). Enter "draft", "latest", a version such as 1.2.0, or 1 for the latest 1.x.x.',
-		displayOptions: { show },
-	};
+// The template picker as an option or a filter: inside a collection, so without displayOptions.
+export function templateLocatorOption(description: string): INodeProperties {
+	const property = templateLocator({}, { required: false, description });
+	delete property.displayOptions;
+	return property;
 }
 
-// The template version for operations that read a template. API v2 reads the draft when it's left out.
-export function readTemplateVersion(show: Show): INodeProperties {
+// The template version (an option: n8n keeps optional inputs in a collection) for operations that create or check a
+// submission. API v2 uses the latest published version when it's left out (the draft when none has been published).
+// The template's field pickers read it as options.templateVersion.
+export const submissionTemplateVersionOption: INodeProperties = {
+	displayName: 'Template Version',
+	name: 'templateVersion',
+	type: 'string',
+	default: '',
+	placeholder: 'latest',
+	description:
+		'Leave this option out for the latest published version (the draft when none has been published). Enter "draft", "latest", a version such as 1.2.0, or 1 for the latest 1.x.x.',
+};
+
+// The template version option for operations that read a template. API v2 reads the draft when it's left out.
+export const readTemplateVersionOption: INodeProperties = {
+	displayName: 'Template Version',
+	name: 'templateVersion',
+	type: 'string',
+	default: '',
+	placeholder: 'draft',
+	description:
+		'Leave this option out for the draft. Enter "latest", a published version such as 1.2.0, or 1 for the latest 1.x.x.',
+};
+
+// A collection that holds only the template version, for operations with no other options.
+export function templateVersionOptions(show: Show, option: INodeProperties): INodeProperties {
 	return {
-		displayName: 'Template Version',
-		name: 'templateVersion',
-		type: 'string',
-		default: '',
-		placeholder: 'draft',
-		description:
-			'Leave empty for the draft. Enter "latest", a published version such as 1.2.0, or 1 for the latest 1.x.x.',
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add Option',
+		default: {},
 		displayOptions: { show },
+		options: [option],
 	};
 }
 
@@ -69,7 +84,7 @@ export function templateDataMapper(show: Show, allOptional: boolean): INodePrope
 		default: { mappingMode: 'defineBelow', value: null },
 		noDataExpression: true,
 		typeOptions: {
-			loadOptionsDependsOn: ['templateId.value', 'templateVersion'],
+			loadOptionsDependsOn: ['templateId.value', 'options.templateVersion'],
 			resourceMapper: {
 				resourceMapperMethod: allOptional ? 'getTemplateFieldsOptional' : 'getTemplateFields',
 				mode: 'add',
@@ -284,7 +299,7 @@ export function signersField(show: Show, required: boolean): INodeProperties {
 						type: 'multiOptions',
 						typeOptions: {
 							loadOptionsMethod: 'getTemplateFieldNames',
-							loadOptionsDependsOn: ['templateId.value', 'templateVersion'],
+							loadOptionsDependsOn: ['templateId.value', 'options.templateVersion'],
 						},
 						default: [],
 						description:

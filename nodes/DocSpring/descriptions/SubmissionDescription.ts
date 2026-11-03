@@ -8,9 +8,11 @@ import {
 	returnAllAndLimit,
 	signerEmailFields,
 	signersField,
-	submissionTemplateVersion,
+	submissionTemplateVersionOption,
 	templateDataMapper,
 	templateLocator,
+	templateLocatorOption,
+	templateVersionOptions,
 	testField,
 	waitOption,
 } from './SharedDescription';
@@ -72,7 +74,6 @@ const generateFiles = { resource: ['submission'], operation: ['generateFiles'] }
 export const submissionFields: INodeProperties[] = [
 	// ─── Generate PDF and Check Data ──────────────────────────────────────
 	templateLocator({ resource: ['submission'], operation: ['generatePdf', 'checkData'] }),
-	submissionTemplateVersion({ resource: ['submission'], operation: ['generatePdf', 'checkData'] }),
 	templateDataMapper(generatePdf, false),
 	templateDataMapper(checkData, true),
 	testField({ resource: ['submission'], operation: ['generatePdf', 'checkData'] }),
@@ -118,12 +119,14 @@ export const submissionFields: INodeProperties[] = [
 				description:
 					"What the submission makes. Leave this option out for what the template makes: the PDF, or what a Word template is set to make. A submission with a PDF passphrase can't make the Word document or OpenDocument file.",
 			},
+			submissionTemplateVersionOption,
 			waitOption(
 				'Wait for PDF',
 				'Whether to wait until the PDF has been generated. Turn it off to get the pending submission straight away.',
 			),
 		],
 	},
+	templateVersionOptions(checkData, submissionTemplateVersionOption),
 
 	// ─── Get, Expire and Generate Files ───────────────────────────────────
 	{
@@ -162,10 +165,6 @@ export const submissionFields: INodeProperties[] = [
 	},
 
 	// ─── Get Many ─────────────────────────────────────────────────────────
-	templateLocator(getMany, {
-		required: false,
-		description: "Only get this template's submissions. Leave empty to get every template's.",
-	}),
 	...returnAllAndLimit(getMany),
 	{
 		displayName: 'Filters',
@@ -207,6 +206,7 @@ export const submissionFields: INodeProperties[] = [
 				default: 'live',
 				description: 'Whether to get only live or only test submissions. Leave the filter out to get both.',
 			},
+			templateLocatorOption("Only get this template's submissions. Leave the filter out to get every template's."),
 		],
 	},
 ];

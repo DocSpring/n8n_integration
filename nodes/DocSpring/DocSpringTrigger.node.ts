@@ -7,8 +7,9 @@ import type {
 	INodeTypeDescription,
 	IWebhookFunctions,
 	IWebhookResponseData,
+	JsonObject,
 } from 'n8n-workflow';
-import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
+import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
 import {
 	PICKER_MAX_ITEMS,
@@ -163,7 +164,11 @@ export class DocSpringTrigger implements INodeType {
 					if (signed && typeof webhook.secret === 'string' && webhook.secret) webhookData.webhookSecret = webhook.secret;
 					return true;
 				} catch (error) {
-					if (!isNotFound(error)) throw error;
+					if (!isNotFound(error)) {
+						// Both constructors return an error that's already of their class unchanged.
+						if (error instanceof NodeOperationError) throw new NodeOperationError(this.getNode(), error);
+						throw new NodeApiError(this.getNode(), error as JsonObject);
+					}
 					delete webhookData.webhookId;
 					delete webhookData.webhookSecret;
 					return false;
@@ -218,7 +223,11 @@ export class DocSpringTrigger implements INodeType {
 							path: `/webhooks/${encodeId(String(webhookData.webhookId), 'Webhook ID', this.getNode())}`,
 						});
 					} catch (error) {
-						if (!isNotFound(error)) throw error;
+						if (!isNotFound(error)) {
+							// Both constructors return an error that's already of their class unchanged.
+							if (error instanceof NodeOperationError) throw new NodeOperationError(this.getNode(), error);
+							throw new NodeApiError(this.getNode(), error as JsonObject);
+						}
 					}
 					delete webhookData.webhookId;
 				}

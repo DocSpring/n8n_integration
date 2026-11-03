@@ -20,6 +20,11 @@ using 1.0.0.
   template's processed submission.
 - The template picker leaves out a search of only spaces, which API v2 refuses.
 - CC and Notification Emails send each address once (the API refuses a list with repeats).
+- **Options:** Template Version is in each operation's Options; Template → Create's SCSS, Header HTML and Footer
+  HTML and Publish Version's Description are in their Options; Submission → Get Many's template is a filter. n8n's
+  review of community nodes asks for optional inputs there.
+- The node's subtitle on the canvas is its operation and resource (such as `generatePdf: submission`), as n8n's
+  review asks.
 
 ## 1.0.0
 

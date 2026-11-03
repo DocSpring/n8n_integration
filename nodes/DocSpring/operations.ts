@@ -37,8 +37,8 @@ function requiredString(ctx: IExecuteFunctions, name: string, label: string, i: 
 	return value;
 }
 
-function templateIdParam(ctx: IExecuteFunctions, i: number, required = true): string {
-	const value = ctx.getNodeParameter('templateId', i, '', { extractValue: true }) as unknown;
+function templateIdParam(ctx: IExecuteFunctions, i: number, required = true, name = 'templateId'): string {
+	const value = ctx.getNodeParameter(name, i, '', { extractValue: true }) as unknown;
 	const id = value === undefined || value === null ? '' : String(value).trim();
 	if (!id && required) throw new NodeOperationError(ctx.getNode(), 'Choose a template', { itemIndex: i });
 	return id;
@@ -49,7 +49,7 @@ function optionsParam(ctx: IExecuteFunctions, i: number, name = 'options'): IDat
 }
 
 function versionQuery(ctx: IExecuteFunctions, i: number): IDataObject {
-	const version = stringParam(ctx, 'templateVersion', i);
+	const version = stringParam(ctx, 'options.templateVersion', i);
 	return version ? { version } : {};
 }
 
@@ -265,7 +265,7 @@ const getManySubmissions: Operation = async function (i) {
 	const node = this.getNode();
 	const filters = optionsParam(this, i, 'filters');
 	const qs: IDataObject = {};
-	const templateId = templateIdParam(this, i, false);
+	const templateId = templateIdParam(this, i, false, 'filters.templateId');
 	if (templateId) qs.template_id = templateId;
 	if (filters.mode === 'live' || filters.mode === 'test') qs.test = filters.mode === 'test';
 	const timeZone = this.getTimezone();
@@ -283,7 +283,7 @@ const createSubmissionBatch: Operation = async function (i) {
 	const node = this.getNode();
 	const options = optionsParam(this, i);
 	const body: IDataObject = { template_id: templateIdParam(this, i) };
-	const version = stringParam(this, 'templateVersion', i);
+	const version = stringParam(this, 'options.templateVersion', i);
 	if (version) body.template_version = version;
 	Object.assign(body, testBody(this, i));
 	const outputFormats = parseList(options.outputFormats);
@@ -503,9 +503,9 @@ const createTemplate: Operation = async function (i) {
 	} else {
 		for (const [param, key] of [
 			['html', 'html'],
-			['scss', 'scss'],
-			['headerHtml', 'header_html'],
-			['footerHtml', 'footer_html'],
+			['options.scss', 'scss'],
+			['options.headerHtml', 'header_html'],
+			['options.footerHtml', 'footer_html'],
 		]) {
 			const value = this.getNodeParameter(param, i, '') as string;
 			if (typeof value === 'string' && value.trim()) body[key] = value;
@@ -569,7 +569,7 @@ const moveTemplate: Operation = async function (i) {
 const publishTemplateVersion: Operation = async function (i) {
 	const id = templateIdParam(this, i);
 	const body: IDataObject = { version_type: stringParam(this, 'versionType', i) || 'patch' };
-	const description = stringParam(this, 'versionDescription', i);
+	const description = stringParam(this, 'options.versionDescription', i);
 	if (description) body.description = description;
 	return request(this, { method: 'POST', path: `/templates/${pathId(this, id, 'Template ID', i)}/publish_version`, body }, i);
 };

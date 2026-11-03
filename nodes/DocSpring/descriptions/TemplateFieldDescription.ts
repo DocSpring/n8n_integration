@@ -1,6 +1,6 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { readTemplateVersion, templateLocator } from './SharedDescription';
+import { readTemplateVersionOption, templateLocator, templateVersionOptions } from './SharedDescription';
 
 export const templateFieldOperations: INodeProperties[] = [
 	{
@@ -43,7 +43,7 @@ const show = (...operation: string[]) => ({ resource: ['templateField'], operati
 
 export const templateFieldFields: INodeProperties[] = [
 	templateLocator(show('add', 'getMany', 'remove', 'update')),
-	readTemplateVersion(show('getMany')),
+	templateVersionOptions(show('getMany'), readTemplateVersionOption),
 	{
 		displayName: 'Fields',
 		name: 'fields',

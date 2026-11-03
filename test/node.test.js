@@ -69,12 +69,10 @@ describe('node description', () => {
 		]);
 	});
 
-	test('the subtitle shows the operation label, not its value', () => {
+	test("the subtitle is n8n's string literal, which its linter can read", () => {
 		const { subtitle, version } = new DocSpring().description;
 		assert.equal(version, 1);
-		assert.match(subtitle, /"submission:generatePdf":"Generate a PDF"/);
-		assert.match(subtitle, /"signatureRequest:create":"Create a signature request"/);
-		assert.doesNotMatch(subtitle, /dataRequest|combinedSubmission/);
+		assert.equal(subtitle, '={{ $parameter["operation"] + ": " + $parameter["resource"] }}');
 	});
 });
 
@@ -83,16 +81,17 @@ describe('Submission: Generate PDF', () => {
 		resource: 'submission',
 		operation: 'generatePdf',
 		templateId: TEMPLATE,
-		templateVersion: '1.2.0',
 		templateData: { mappingMode: 'defineBelow', value: { first_name: 'Jane', last_name: '', notes: null, age: 41 } },
 		test: false,
-		options: {},
+		options: { templateVersion: '1.2.0' },
 		...overrides,
 	});
 
 	test('posts to the sync host on API v2 with version and wait in the query', async () => {
 		const { output, requests } = await run({
-			params: params({ options: { metadata: '{"order": 7}', expiresIn: '3600', outputFormats: ['pdf', 'png'] } }),
+			params: params({
+				options: { templateVersion: '1.2.0', metadata: '{"order": 7}', expiresIn: '3600', outputFormats: ['pdf', 'png'] },
+			}),
 			responses: [{ statusCode: 201, body: submission() }],
 		});
 		assert.equal(requests.length, 1);
@@ -128,7 +127,7 @@ describe('Submission: Generate PDF', () => {
 
 	test('sends wait=false when waiting is turned off, and leaves out an empty version', async () => {
 		const { requests } = await run({
-			params: params({ templateVersion: '', options: { wait: false } }),
+			params: params({ options: { templateVersion: '', wait: false } }),
 			responses: [{ statusCode: 201, body: submission({ state: 'pending' }) }],
 		});
 		assert.deepEqual(requests[0].qs, { wait: false });
@@ -252,10 +251,9 @@ describe('Submission: other operations', () => {
 			params: {
 				resource: 'submission',
 				operation: 'getMany',
-				templateId: TEMPLATE,
 				returnAll: false,
 				limit: 3,
-				filters: { mode: 'test', createdAfter: '2025-01-31T09:00:00', includeData: true },
+				filters: { mode: 'test', createdAfter: '2025-01-31T09:00:00', includeData: true, templateId: TEMPLATE },
 			},
 			timezone: 'Pacific/Auckland',
 			responses: [
@@ -283,9 +281,8 @@ describe('Submission: other operations', () => {
 			params: {
 				resource: 'submission',
 				operation: 'getMany',
-				templateId: { mode: 'list', value: '' },
 				returnAll: true,
-				filters: { mode: 'live', createdBefore: '2025-06-01T00:00:00+02:00' },
+				filters: { mode: 'live', createdBefore: '2025-06-01T00:00:00+02:00', templateId: { mode: 'list', value: '' } },
 			},
 			responses: [{ body: { data: [{ id: 'sub_a' }], next_cursor: null } }],
 		});
@@ -299,7 +296,7 @@ describe('Submission: other operations', () => {
 				resource: 'submission',
 				operation: 'checkData',
 				templateId: TEMPLATE,
-				templateVersion: 'draft',
+				options: { templateVersion: 'draft' },
 				templateData: { value: { first_name: 'Jane' } },
 				test: true,
 				signers: { signer: [{ email: 'jane@example.com', fields: 'signature, date', authType: 'email_link' }] },
@@ -322,7 +319,6 @@ describe('Submission: other operations', () => {
 			resource: 'submission',
 			operation: 'checkData',
 			templateId: TEMPLATE,
-			templateVersion: '',
 			templateData: { value: {} },
 			test: false,
 			signingOrder: 'sequential',
@@ -405,7 +401,6 @@ describe('Submission Batch', () => {
 				resource: 'submissionBatch',
 				operation: 'create',
 				templateId: TEMPLATE,
-				templateVersion: '',
 				test: true,
 				submissions: '[{"data": {"name": "A"}}, {"data": {"name": "B"}, "metadata": {"row": 2}}]',
 				options: { metadata: '{}' },
@@ -437,7 +432,6 @@ describe('Submission Batch', () => {
 					resource: 'submissionBatch',
 					operation: 'create',
 					templateId: TEMPLATE,
-					templateVersion: '',
 					test: false,
 					submissions: [{ data: {} }, { data: {} }],
 					options: {},
@@ -503,7 +497,6 @@ describe('Signature Request', () => {
 		resource: 'signatureRequest',
 		operation: 'create',
 		templateId: TEMPLATE,
-		templateVersion: '',
 		templateData: { value: { company: 'Acme', empty: '' } },
 		signers: {
 			signer: [
@@ -796,10 +789,7 @@ describe('Template', () => {
 				name: 'Invoice',
 				templateType: 'html',
 				html: '<p>{{ name }}</p>',
-				scss: '',
-				headerHtml: '',
-				footerHtml: '<p>Footer</p>',
-				options: { wait: false },
+				options: { wait: false, scss: '', headerHtml: '', footerHtml: '<p>Footer</p>' },
 			},
 			responses: [{ statusCode: 201, body: { id: 'tpl_8', document: null } }],
 		});
@@ -869,7 +859,7 @@ describe('Template', () => {
 				operation: 'publishVersion',
 				templateId: TEMPLATE,
 				versionType: 'minor',
-				versionDescription: 'New fields',
+				options: { versionDescription: 'New fields' },
 			},
 			responses: [{ statusCode: 201, body: { version: '1.1.0' } }],
 		});
@@ -881,7 +871,7 @@ describe('Template', () => {
 describe('Template Field and Folder', () => {
 	test('Get Many returns one item per field', async () => {
 		const { output, requests } = await run({
-			params: { resource: 'templateField', operation: 'getMany', templateId: TEMPLATE, templateVersion: '' },
+			params: { resource: 'templateField', operation: 'getMany', templateId: TEMPLATE },
 			responses: [{ body: { template_id: 'tpl_123', version: null, fields: [{ id: 1 }, { id: 2 }] } }],
 		});
 		assert.equal(requests[0].url, 'https://api.docspring.com/api/v2/templates/tpl_123/fields');
@@ -940,7 +930,7 @@ describe('IDs in paths', () => {
 		['Combined PDF ID', { resource: 'combinedPdf', operation: 'get', combinedPdfId: '.' }],
 		['Signature Request ID', { resource: 'signatureRequest', operation: 'get', signatureRequestId: '..' }],
 		['Signature Request ID', { resource: 'signatureRequest', operation: 'createSigningLink', signatureRequestId: '..', linkType: 'api' }],
-		['Template ID', { resource: 'template', operation: 'get', templateId: { mode: 'id', value: '..' }, templateVersion: '' }],
+		['Template ID', { resource: 'template', operation: 'get', templateId: { mode: 'id', value: '..' } }],
 		['Template ID', { resource: 'template', operation: 'move', templateId: { mode: 'id', value: '.' }, folderId: 'root' }],
 		[
 			'Template ID',
@@ -948,7 +938,6 @@ describe('IDs in paths', () => {
 				resource: 'submission',
 				operation: 'generatePdf',
 				templateId: { mode: 'id', value: ' .. ' },
-				templateVersion: '',
 				templateData: { value: {} },
 				test: false,
 				options: {},
@@ -995,7 +984,6 @@ describe('rate limits', () => {
 		resource: 'submission',
 		operation: 'generatePdf',
 		templateId: TEMPLATE,
-		templateVersion: '',
 		templateData: { value: { first_name: 'Jane' } },
 		test: true,
 		options: {},
@@ -1067,7 +1055,6 @@ describe('rate limits', () => {
 			resource: 'signatureRequest',
 			operation: 'create',
 			templateId: TEMPLATE,
-			templateVersion: '',
 			templateData: { value: {} },
 			signers: { signer: [{ email: 'jane@example.com', fields: ['signature'], authType: 'email_link' }] },
 			sendEmail: 'self',
@@ -1102,5 +1089,76 @@ describe('rate limits', () => {
 				},
 			);
 		});
+	});
+});
+
+describe("n8n's layout rules", () => {
+	const { properties } = new DocSpring().description;
+	const topLevel = (resource, operation) =>
+		properties.filter((p) => {
+			const show = p.displayOptions && p.displayOptions.show;
+			return show && show.resource && show.resource.includes(resource) && show.operation && show.operation.includes(operation);
+		});
+
+	test('optional inputs are in an Options or Filters collection, not at the top level', () => {
+		for (const [resource, operation, names] of [
+			['submission', 'generatePdf', ['templateVersion']],
+			['submission', 'checkData', ['templateVersion']],
+			['signatureRequest', 'create', ['templateVersion']],
+			['submissionBatch', 'create', ['templateVersion']],
+			['template', 'get', ['templateVersion']],
+			['template', 'getPageImages', ['templateVersion']],
+			['templateField', 'getMany', ['templateVersion']],
+			['template', 'create', ['scss', 'headerHtml', 'footerHtml']],
+			['template', 'publishVersion', ['versionDescription']],
+			['submission', 'getMany', ['templateId']],
+		]) {
+			const fields = topLevel(resource, operation);
+			for (const name of names) {
+				assert.equal(
+					fields.find((p) => p.name === name),
+					undefined,
+					`${resource} ${operation}: ${name} is at the top level`,
+				);
+			}
+			const collection = fields.find((p) => p.type === 'collection' && (p.name === 'options' || p.name === 'filters'));
+			assert.ok(collection, `${resource} ${operation} has no Options or Filters collection`);
+			for (const name of names) {
+				assert.ok(
+					collection.options.some((option) => option.name === name),
+					`${resource} ${operation}: ${name} isn't in its ${collection.displayName}`,
+				);
+			}
+		}
+	});
+
+	test('the template data picker follows the Template Version option', () => {
+		const mapper = topLevel('submission', 'generatePdf').find((p) => p.name === 'templateData');
+		assert.deepEqual(mapper.typeOptions.loadOptionsDependsOn, ['templateId.value', 'options.templateVersion']);
+	});
+
+	test('the read operations and batches send the Template Version option', async () => {
+		const get = await run({
+			params: { resource: 'template', operation: 'getPageImages', templateId: TEMPLATE, options: { templateVersion: '1.0.0' } },
+			responses: [{ body: { page_images: [] } }],
+		});
+		assert.deepEqual(get.requests[0].qs, { version: '1.0.0' });
+		const fields = await run({
+			params: { resource: 'templateField', operation: 'getMany', templateId: TEMPLATE, options: { templateVersion: 'latest' } },
+			responses: [{ body: { fields: [] } }],
+		});
+		assert.deepEqual(fields.requests[0].qs, { version: 'latest' });
+		const batch = await run({
+			params: {
+				resource: 'submissionBatch',
+				operation: 'create',
+				templateId: TEMPLATE,
+				test: true,
+				submissions: '[{"data": {}}]',
+				options: { templateVersion: '2.0.0' },
+			},
+			responses: [{ statusCode: 201, body: { id: 'sbb_1', state: 'processed', submissions: [] } }],
+		});
+		assert.equal(batch.requests[0].body.template_version, '2.0.0');
 	});
 });

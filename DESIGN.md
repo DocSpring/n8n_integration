@@ -59,7 +59,10 @@ a new node version (n8n keeps each saved node's `typeVersion`).
 - **Errors.** Requests use `ignoreHttpStatusErrors`, so the helper sees the response and throws a `NodeApiError`:
   `DocSpring API error <status> <code>: <message>` as the message; one line per detail (`<pointer or parameter>:
   <message>`), the record ID (`Submission: sub_…`, or the batch, combined PDF or template) and `Request ID: req_…`
-  as the description. A `polling_timeout` says how to get the record later. continueOnFail outputs both parts.
+  as the description. A `polling_timeout` says how to get the record later. continueOnFail outputs both parts. A
+  caught error is thrown again as `new NodeApiError(node, error)` or `new NodeOperationError(node, error)`, never
+  as `throw error` (n8n's scanner rejects that); both constructors return an error that's already of their class
+  unchanged, so the message and description survive.
 - **Failure states.** A create that returns a record in a failure state (a submission's `error`, `syntax_error`,
   `image_download_failed` or `image_processing_failed`; a combined PDF's or batch's `error`; a template PDF's
   `password_required`, `malformed_pdf`, `unknown_error` or `download_failed`; a generated file's `error`) fails with
@@ -108,8 +111,13 @@ same settings (`signerEmailFields`) and sends them only with its signers, since 
 
 - **Template**: a resource locator. "From List" uses `listSearch.searchTemplates` (`GET /templates?query=`, one page
   of 100 per call, `next_cursor` as n8n's pagination token); "By ID" takes `tpl_…`.
-- **Template Version**: a query parameter. Operations that create or check a submission default to the latest
-  published version; Get Template, Get Page Images and Template Field Get Many default to the draft.
+- **Template Version**: an option in each operation's Options (`options.templateVersion`), sent as the `version`
+  query parameter. Operations that create or check a submission default to the latest published version; Get
+  Template, Get Page Images and Template Field Get Many default to the draft.
+- **Optional inputs** go in an Options or Filters collection: n8n's review of community nodes requires it (Creator
+  Portal review of 1.0.0, November 2026). That covers Template Version, Template Create's SCSS, Header HTML and
+  Footer HTML (shown for HTML templates through `'/templateType'`), Publish Version's Description and Submission Get
+  Many's template (a filter). The "n8n's layout rules" tests fail when an optional input is added at the top level.
 - **Template Data**: a resource mapper built from `GET /templates/{id}/schema?version=` (`schemaToResourceMapperFields`).
   JSON Schema types map to n8n types (number, options for enums, object and array as JSON, `date-time` as
   dateTime). Booleans (checkbox fields) are options too: Leave Blank (`""`), True (`true`) and False (`false`), with no
@@ -121,7 +129,8 @@ same settings (`signerEmailFields`) and sends them only with its signers, since 
 - **Signers' fields**: a multi-select of the names from `GET /templates/{id}/fields?version=` (the chosen version, or
   `latest` when it's empty), each once and in the API's order, without static fields, combined fields and `@@`
   submission details (`signerFieldNames`, as in the Pipedream integration). It reloads when the template or version
-  changes. v2 requires at least one per signer.
+  changes (`loadOptionsDependsOn`: `templateId.value` and `options.templateVersion`, as for Template Data). v2
+  requires at least one per signer.
 - **Folders**: `loadOptions` pickers over `GET /folders` (paths such as `/Contracts/Leases`). Move and Copy add
   "/ (Root)" (stored as `root`, sent as `parent_folder_id: null`).
 - **Date filters**: n8n's date picker gives a time without an offset, read in the workflow's time zone and sent as
@@ -162,8 +171,12 @@ labels, values and output. The PDF password option is labelled "Encrypt PDF With
 - `npm run build`, `npm run lint` (eslint-plugin-n8n-nodes-base, with two rules off that contradict n8n's
   community scanner; see `.eslintrc.js`), `npm test` (builds, then `node --test` against `dist/`; HTTP is mocked and
   the network is blocked).
-- `npx @n8n/scan-community-package @docspring/n8n-nodes-docspring` checks a published version against n8n's
-  community node rules (it downloads the package from npm).
+- `npm run scan` (after a build) runs n8n's community package scanner on the sources and on the files `npm pack`
+  would publish, as n8n's review does. It installs a pinned version of `@n8n/scan-community-package` into
+  `node_modules/.cache` (not a dev dependency: its TypeScript 6 replaces our `tsc`). The scanner ignores
+  `eslint-disable` comments. `prepublishOnly` runs build, lint and scan, so a version that would fail n8n's scan
+  isn't published.
+- `npx @n8n/scan-community-package @docspring/n8n-nodes-docspring` checks a version that's already on npm.
 - Live checks against DocSpring with a test API token: link the built package into a local n8n
   (`~/.n8n/custom`, `N8N_CUSTOM_EXTENSIONS`, or a Docker n8n with the package mounted) and run each operation and
   the trigger.

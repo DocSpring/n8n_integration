@@ -54,7 +54,7 @@ With API v2 but an older release, install version 1.0.0: this version's Signatur
   - **Get** a signature request.
 - **Template**
   - **Create**: a PDF template from a PDF (an input binary field or an https:// URL), with optional AI field
-    detection, or an HTML template.
+    detection, or an HTML template (its styles, header and footer are in **Options**).
   - **Get**, **Get Many** (by name and folder), **Get Page Images**.
   - **Replace PDF**: replace a PDF template's PDF, keeping its fields (or reimporting them from the new PDF).
   - **Copy**, **Move** to a folder or the root, **Publish Version**.
@@ -64,7 +64,7 @@ With API v2 but an older release, install version 1.0.0: this version's Signatur
 ### Template data
 
 Generate PDF, Check Data and Create Signature Request show a field for each of the template's fields, from the
-template version you choose (the latest published version by default). Date fields take dates as `YYYY-MM-DD`; their
+template version you choose in **Options** (the latest published version by default). Date fields take dates as `YYYY-MM-DD`; their
 names show the format. Checkbox fields are **Leave Blank** (nothing is sent), **True** or **False**; they start blank,
 so a signer can tick a checkbox you didn't set. From an expression, give `true` or `false` (not text). Turn on
 **Attempt to convert types** in the field list if your other values arrive as text (such as `"42"` for a number
@@ -79,7 +79,7 @@ or the trigger. If DocSpring couldn't generate the PDF, the node fails with the 
 ### Signature requests
 
 Each signer needs the fields they fill in. Choose them from the template's fields (at the template version you
-chose, or the latest), or set them with an expression.
+chose in **Options**, or the latest), or set them with an expression.
 **Authentication** says how your app checked who the person is (Email Link by default); OAuth also needs an **Auth
 Provider**, such as `google`. Set **Role** (`Signer 1`, `Signer 2`, …) for every signer or for none.
 

@@ -8,6 +8,7 @@ import type {
 	INodePropertyOptions,
 	INodeType,
 	INodeTypeDescription,
+	JsonObject,
 	ResourceMapperFields,
 } from 'n8n-workflow';
 import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
@@ -53,25 +54,13 @@ const OPERATION_DESCRIPTIONS: INodeProperties[] = [
 	...templateFieldOperations,
 ];
 
-// The canvas subtitle shows each operation's action ("Generate a PDF"), not its stored values.
-function subtitleExpression(): string {
-	const labels: { [key: string]: string } = {};
-	for (const property of OPERATION_DESCRIPTIONS) {
-		const resource = property.displayOptions?.show?.resource?.[0] as string;
-		for (const option of (property.options || []) as INodePropertyOptions[]) {
-			labels[`${resource}:${option.value}`] = option.action || option.name;
-		}
-	}
-	return `={{ (${JSON.stringify(labels)})[$parameter["resource"] + ":" + $parameter["operation"]] || $parameter["operation"] }}`;
-}
-
 function templateIdFromParameters(context: ILoadOptionsFunctions): string {
 	const value = context.getNodeParameter('templateId', '', { extractValue: true }) as unknown;
 	return value === undefined || value === null ? '' : String(value).trim();
 }
 
 function templateVersionQuery(context: ILoadOptionsFunctions): IDataObject {
-	const version = context.getNodeParameter('templateVersion', '') as unknown;
+	const version = context.getNodeParameter('options.templateVersion', '') as unknown;
 	const text = version === undefined || version === null ? '' : String(version).trim();
 	return text ? { version: text } : {};
 }
@@ -94,15 +83,13 @@ async function folderOptions(context: ILoadOptionsFunctions): Promise<INodePrope
 }
 
 export class DocSpring implements INodeType {
-	// The subtitle is built from the operation definitions (see subtitleExpression), which this rule can't read.
-	// eslint-disable-next-line n8n-nodes-base/node-class-description-missing-subtitle
 	description: INodeTypeDescription = {
 		displayName: 'DocSpring',
 		name: 'docSpring',
 		icon: { light: 'file:docspring.svg', dark: 'file:docspring.dark.svg' },
 		group: ['output'],
 		version: 1,
-		subtitle: subtitleExpression(),
+		subtitle: '={{ $parameter["operation"] + ": " + $parameter["resource"] }}',
 		description: 'Generate, combine and sign PDFs, and manage templates, with DocSpring',
 		defaults: { name: 'DocSpring' },
 		usableAsTool: true,
@@ -226,7 +213,8 @@ export class DocSpring implements INodeType {
 					returnData.push({ json: { error: errorText(error) }, pairedItem: { item: i } });
 					continue;
 				}
-				if (error instanceof NodeApiError || error instanceof NodeOperationError) throw error;
+				// Both constructors return an error that's already of their class unchanged.
+				if (error instanceof NodeApiError) throw new NodeApiError(this.getNode(), error as unknown as JsonObject);
 				throw new NodeOperationError(this.getNode(), error as Error, { itemIndex: i });
 			}
 		}

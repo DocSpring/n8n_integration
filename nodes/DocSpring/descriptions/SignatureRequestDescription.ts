@@ -5,7 +5,7 @@ import {
 	metadataOption,
 	signerEmailFields,
 	signersField,
-	submissionTemplateVersion,
+	submissionTemplateVersionOption,
 	templateDataMapper,
 	templateLocator,
 	testField,
@@ -48,7 +48,6 @@ const create = { resource: ['signatureRequest'], operation: ['create'] };
 export const signatureRequestFields: INodeProperties[] = [
 	// ─── Create ───────────────────────────────────────────────────────────
 	templateLocator(create),
-	submissionTemplateVersion(create),
 	templateDataMapper(create, true),
 	signersField(create, true),
 	...signerEmailFields(create),
@@ -78,7 +77,7 @@ export const signatureRequestFields: INodeProperties[] = [
 		placeholder: 'Add Option',
 		default: {},
 		displayOptions: { show: create },
-		options: [expiresInOption, metadataOption],
+		options: [expiresInOption, metadataOption, submissionTemplateVersionOption],
 	},
 
 	// ─── Create Signing Link and Get ──────────────────────────────────────
