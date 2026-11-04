@@ -41,6 +41,15 @@ describe('pickers', () => {
 		});
 	});
 
+	test('the template picker leaves out a search of only spaces, and trims the others', async () => {
+		const page = { body: { data: [], next_cursor: null } };
+		const { context, http } = createLoadOptionsContext({ responses: [page, page] });
+		await methods.listSearch.searchTemplates.call(context, '   ');
+		await methods.listSearch.searchTemplates.call(context, ' lease ');
+		assert.deepEqual(http.requests[0].qs, { limit: 100 });
+		assert.deepEqual(http.requests[1].qs, { limit: 100, query: 'lease' });
+	});
+
 	test('the folder pickers page through every folder and show paths, with a root option where it applies', async () => {
 		const { context, http } = createLoadOptionsContext({
 			responses: [
@@ -83,7 +92,7 @@ describe('pickers', () => {
 			{ id: 8, name: 'signature', type: 'signature' },
 		];
 		const { context, http } = createLoadOptionsContext({
-			params: { templateId: TEMPLATE, templateVersion: '2.0.0' },
+			params: { templateId: TEMPLATE, options: { templateVersion: '2.0.0' } },
 			responses: [{ body: { template_id: 'tpl_123', version: '2.0.0', fields } }],
 		});
 		const options = await methods.loadOptions.getTemplateFieldNames.call(context);
@@ -99,7 +108,7 @@ describe('pickers', () => {
 
 	test("the signers' field picker reads the latest version when none is chosen", async () => {
 		const { context, http } = createLoadOptionsContext({
-			params: { templateId: TEMPLATE, templateVersion: ' ' },
+			params: { templateId: TEMPLATE, options: { templateVersion: ' ' } },
 			responses: [{ body: { template_id: 'tpl_123', version: '1.0.0', fields: [{ id: 1, name: 'a' }] } }],
 		});
 		const options = await methods.loadOptions.getTemplateFieldNames.call(context);
@@ -108,7 +117,7 @@ describe('pickers', () => {
 	});
 
 	test("the signers' field picker is empty until a template is chosen", async () => {
-		const { context, http } = createLoadOptionsContext({ params: { templateId: { mode: 'list', value: '' }, templateVersion: '' } });
+		const { context, http } = createLoadOptionsContext({ params: { templateId: { mode: 'list', value: '' } } });
 		assert.deepEqual(await methods.loadOptions.getTemplateFieldNames.call(context), []);
 		assert.equal(http.requests.length, 0);
 	});
@@ -123,7 +132,7 @@ describe('pickers', () => {
 			);
 			const fields = signers.options[0].values.find((value) => value.name === 'fields');
 			assert.equal(fields.typeOptions.loadOptionsMethod, 'getTemplateFieldNames');
-			assert.deepEqual(fields.typeOptions.loadOptionsDependsOn, ['templateId.value', 'templateVersion']);
+			assert.deepEqual(fields.typeOptions.loadOptionsDependsOn, ['templateId.value', 'options.templateVersion']);
 		}
 	});
 });
@@ -131,7 +140,7 @@ describe('pickers', () => {
 describe('template data fields', () => {
 	test('come from the schema at the chosen version, with date fields as YYYY-MM-DD text', async () => {
 		const { context, http } = createLoadOptionsContext({
-			params: { templateId: TEMPLATE, templateVersion: '' },
+			params: { templateId: TEMPLATE },
 			responses: [{ body: SCHEMA }],
 		});
 		const { fields } = await methods.resourceMapping.getTemplateFields.call(context);
@@ -153,7 +162,7 @@ describe('template data fields', () => {
 	});
 
 	test('make checkbox (boolean) fields a Leave Blank, True or False choice', async () => {
-		const { context } = createLoadOptionsContext({ params: { templateId: TEMPLATE, templateVersion: '' }, responses: [{ body: SCHEMA }] });
+		const { context } = createLoadOptionsContext({ params: { templateId: TEMPLATE }, responses: [{ body: SCHEMA }] });
 		const { fields } = await methods.resourceMapping.getTemplateFieldsOptional.call(context);
 		const agree = fields.find((field) => field.id === 'agree');
 		assert.equal(agree.type, 'options');
@@ -178,7 +187,7 @@ describe('template data fields', () => {
 
 	test('start blank in every mapper, so no value is sent until the user sets one', async () => {
 		for (const method of ['getTemplateFields', 'getTemplateFieldsOptional']) {
-			const { context } = createLoadOptionsContext({ params: { templateId: TEMPLATE, templateVersion: '' }, responses: [{ body: SCHEMA }] });
+			const { context } = createLoadOptionsContext({ params: { templateId: TEMPLATE }, responses: [{ body: SCHEMA }] });
 			const { fields } = await methods.resourceMapping[method].call(context);
 			const defaults = Object.fromEntries(fields.map((field) => [field.id, n8nDefaultFieldValue(field)]));
 			assert.deepEqual(
@@ -190,7 +199,7 @@ describe('template data fields', () => {
 	});
 
 	test('are all optional for signature requests', async () => {
-		const { context } = createLoadOptionsContext({ params: { templateId: TEMPLATE, templateVersion: '' }, responses: [{ body: SCHEMA }] });
+		const { context } = createLoadOptionsContext({ params: { templateId: TEMPLATE }, responses: [{ body: SCHEMA }] });
 		const { fields } = await methods.resourceMapping.getTemplateFieldsOptional.call(context);
 		assert.ok(fields.every((field) => field.required === false));
 	});
@@ -200,7 +209,7 @@ describe('IDs in paths', () => {
 	test('the pickers reject a template ID of "." or ".." before any request', async () => {
 		for (const method of [methods.loadOptions.getTemplateFieldNames, methods.resourceMapping.getTemplateFields]) {
 			const { context, http } = createLoadOptionsContext({
-				params: { templateId: { mode: 'id', value: '..' }, templateVersion: '' },
+				params: { templateId: { mode: 'id', value: '..' } },
 				responses: [{ body: SCHEMA }],
 			});
 			await assert.rejects(method.call(context), /Template ID can't be "\.\."/);

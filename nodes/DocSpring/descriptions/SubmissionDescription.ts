@@ -3,12 +3,16 @@ import type { INodeProperties } from 'n8n-workflow';
 import {
 	expiresInOption,
 	metadataOption,
+	outputFormatOptions,
 	passwordOption,
 	returnAllAndLimit,
+	signerEmailFields,
 	signersField,
-	submissionTemplateVersion,
+	submissionTemplateVersionOption,
 	templateDataMapper,
 	templateLocator,
+	templateLocatorOption,
+	templateVersionOptions,
 	testField,
 	waitOption,
 } from './SharedDescription';
@@ -37,7 +41,7 @@ export const submissionOperations: INodeProperties[] = [
 				name: 'Generate Files',
 				value: 'generateFiles',
 				action: 'Generate files for a submission',
-				description: "Add PNG images of a processed submission's pages",
+				description: "Add PNG images of a processed submission's pages, or a Word template submission's other files",
 			},
 			{
 				name: 'Generate PDF',
@@ -70,11 +74,11 @@ const generateFiles = { resource: ['submission'], operation: ['generateFiles'] }
 export const submissionFields: INodeProperties[] = [
 	// ─── Generate PDF and Check Data ──────────────────────────────────────
 	templateLocator({ resource: ['submission'], operation: ['generatePdf', 'checkData'] }),
-	submissionTemplateVersion({ resource: ['submission'], operation: ['generatePdf', 'checkData'] }),
 	templateDataMapper(generatePdf, false),
 	templateDataMapper(checkData, true),
 	testField({ resource: ['submission'], operation: ['generatePdf', 'checkData'] }),
 	signersField(checkData, false),
+	...signerEmailFields(checkData),
 	{
 		displayName: 'Options',
 		name: 'options',
@@ -91,7 +95,11 @@ export const submissionFields: INodeProperties[] = [
 				description:
 					"Whether the PDF's text and check fields stay fillable. Left out, the template's setting decides.",
 			},
-			passwordOption,
+			{
+				...passwordOption,
+				description:
+					"A passphrase that the PDF needs to be opened with. A submission with a passphrase can't make a Word document or OpenDocument file.",
+			},
 			expiresInOption,
 			{
 				displayName: 'Field Overrides',
@@ -106,19 +114,19 @@ export const submissionFields: INodeProperties[] = [
 				displayName: 'Output Formats',
 				name: 'outputFormats',
 				type: 'multiOptions',
-				options: [
-					{ name: 'PDF', value: 'pdf' },
-					{ name: 'PNG Page Images', value: 'png', description: 'An image of each page, up to 100 pages' },
-				],
+				options: outputFormatOptions,
 				default: ['pdf'],
-				description: 'What the submission makes',
+				description:
+					"What the submission makes. Leave this option out for what the template makes: the PDF, or what a Word template is set to make. A submission with a PDF passphrase can't make the Word document or OpenDocument file.",
 			},
+			submissionTemplateVersionOption,
 			waitOption(
 				'Wait for PDF',
 				'Whether to wait until the PDF has been generated. Turn it off to get the pending submission straight away.',
 			),
 		],
 	},
+	templateVersionOptions(checkData, submissionTemplateVersionOption),
 
 	// ─── Get, Expire and Generate Files ───────────────────────────────────
 	{
@@ -135,9 +143,10 @@ export const submissionFields: INodeProperties[] = [
 		name: 'formats',
 		type: 'multiOptions',
 		required: true,
-		options: [{ name: 'PNG Page Images', value: 'png', description: 'An image of each page, up to 100 pages' }],
+		options: outputFormatOptions,
 		default: ['png'],
-		description: "The formats to add to the submission's files",
+		description:
+			"The formats to add to the submission's files. PDF, Word Document and OpenDocument File are for the submissions of Word templates.",
 		displayOptions: { show: generateFiles },
 	},
 	{
@@ -156,10 +165,6 @@ export const submissionFields: INodeProperties[] = [
 	},
 
 	// ─── Get Many ─────────────────────────────────────────────────────────
-	templateLocator(getMany, {
-		required: false,
-		description: "Only get this template's submissions. Leave empty to get every template's.",
-	}),
 	...returnAllAndLimit(getMany),
 	{
 		displayName: 'Filters',
@@ -201,6 +206,7 @@ export const submissionFields: INodeProperties[] = [
 				default: 'live',
 				description: 'Whether to get only live or only test submissions. Leave the filter out to get both.',
 			},
+			templateLocatorOption("Only get this template's submissions. Leave the filter out to get every template's."),
 		],
 	},
 ];

@@ -3,8 +3,9 @@ import type { INodeProperties } from 'n8n-workflow';
 import {
 	expiresInOption,
 	metadataOption,
+	signerEmailFields,
 	signersField,
-	submissionTemplateVersion,
+	submissionTemplateVersionOption,
 	templateDataMapper,
 	templateLocator,
 	testField,
@@ -22,7 +23,8 @@ export const signatureRequestOperations: INodeProperties[] = [
 				name: 'Create',
 				value: 'create',
 				action: 'Create a signature request',
-				description: 'Create a submission that waits for people to fill in and sign it, with a signing link for each',
+				description:
+					'Create a submission that waits for people to fill in and sign it. DocSpring emails each of them a link to sign, or you get a signing link for each.',
 			},
 			{
 				name: 'Create Signing Link',
@@ -46,9 +48,9 @@ const create = { resource: ['signatureRequest'], operation: ['create'] };
 export const signatureRequestFields: INodeProperties[] = [
 	// ─── Create ───────────────────────────────────────────────────────────
 	templateLocator(create),
-	submissionTemplateVersion(create),
 	templateDataMapper(create, true),
 	signersField(create, true),
+	...signerEmailFields(create),
 	{
 		displayName: 'Signing Links',
 		name: 'signingLinkType',
@@ -65,7 +67,7 @@ export const signatureRequestFields: INodeProperties[] = [
 		default: 'email',
 		description:
 			'The signing link to create for each signer, added to the output as signing_url. A form that opened in time keeps working for 7 more days.',
-		displayOptions: { show: create },
+		displayOptions: { show: { ...create, sendEmail: ['self'] } },
 	},
 	testField(create),
 	{
@@ -75,7 +77,7 @@ export const signatureRequestFields: INodeProperties[] = [
 		placeholder: 'Add Option',
 		default: {},
 		displayOptions: { show: create },
-		options: [expiresInOption, metadataOption],
+		options: [expiresInOption, metadataOption, submissionTemplateVersionOption],
 	},
 
 	// ─── Create Signing Link and Get ──────────────────────────────────────

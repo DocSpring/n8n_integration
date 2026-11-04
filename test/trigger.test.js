@@ -24,6 +24,8 @@ describe('events', () => {
 			'folder.updated',
 			'signature_request.completed',
 			'signature_request.declined',
+			'signature_request.email_bounced',
+			'signature_request.sent',
 			'signature_request.updated',
 			'signature_request.viewed',
 			'submission.created',

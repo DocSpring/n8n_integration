@@ -69,12 +69,10 @@ describe('node description', () => {
 		]);
 	});
 
-	test('the subtitle shows the operation label, not its value', () => {
+	test("the subtitle is n8n's string literal, which its linter can read", () => {
 		const { subtitle, version } = new DocSpring().description;
 		assert.equal(version, 1);
-		assert.match(subtitle, /"submission:generatePdf":"Generate a PDF"/);
-		assert.match(subtitle, /"signatureRequest:create":"Create a signature request"/);
-		assert.doesNotMatch(subtitle, /dataRequest|combinedSubmission/);
+		assert.equal(subtitle, '={{ $parameter["operation"] + ": " + $parameter["resource"] }}');
 	});
 });
 
@@ -83,16 +81,17 @@ describe('Submission: Generate PDF', () => {
 		resource: 'submission',
 		operation: 'generatePdf',
 		templateId: TEMPLATE,
-		templateVersion: '1.2.0',
 		templateData: { mappingMode: 'defineBelow', value: { first_name: 'Jane', last_name: '', notes: null, age: 41 } },
 		test: false,
-		options: {},
+		options: { templateVersion: '1.2.0' },
 		...overrides,
 	});
 
 	test('posts to the sync host on API v2 with version and wait in the query', async () => {
 		const { output, requests } = await run({
-			params: params({ options: { metadata: '{"order": 7}', expiresIn: '3600', outputFormats: ['pdf', 'png'] } }),
+			params: params({
+				options: { templateVersion: '1.2.0', metadata: '{"order": 7}', expiresIn: '3600', outputFormats: ['pdf', 'png'] },
+			}),
 			responses: [{ statusCode: 201, body: submission() }],
 		});
 		assert.equal(requests.length, 1);
@@ -128,7 +127,7 @@ describe('Submission: Generate PDF', () => {
 
 	test('sends wait=false when waiting is turned off, and leaves out an empty version', async () => {
 		const { requests } = await run({
-			params: params({ templateVersion: '', options: { wait: false } }),
+			params: params({ options: { templateVersion: '', wait: false } }),
 			responses: [{ statusCode: 201, body: submission({ state: 'pending' }) }],
 		});
 		assert.deepEqual(requests[0].qs, { wait: false });
@@ -252,10 +251,9 @@ describe('Submission: other operations', () => {
 			params: {
 				resource: 'submission',
 				operation: 'getMany',
-				templateId: TEMPLATE,
 				returnAll: false,
 				limit: 3,
-				filters: { mode: 'test', createdAfter: '2025-01-31T09:00:00', includeData: true },
+				filters: { mode: 'test', createdAfter: '2025-01-31T09:00:00', includeData: true, templateId: TEMPLATE },
 			},
 			timezone: 'Pacific/Auckland',
 			responses: [
@@ -283,9 +281,8 @@ describe('Submission: other operations', () => {
 			params: {
 				resource: 'submission',
 				operation: 'getMany',
-				templateId: { mode: 'list', value: '' },
 				returnAll: true,
-				filters: { mode: 'live', createdBefore: '2025-06-01T00:00:00+02:00' },
+				filters: { mode: 'live', createdBefore: '2025-06-01T00:00:00+02:00', templateId: { mode: 'list', value: '' } },
 			},
 			responses: [{ body: { data: [{ id: 'sub_a' }], next_cursor: null } }],
 		});
@@ -299,7 +296,7 @@ describe('Submission: other operations', () => {
 				resource: 'submission',
 				operation: 'checkData',
 				templateId: TEMPLATE,
-				templateVersion: 'draft',
+				options: { templateVersion: 'draft' },
 				templateData: { value: { first_name: 'Jane' } },
 				test: true,
 				signers: { signer: [{ email: 'jane@example.com', fields: 'signature, date', authType: 'email_link' }] },
@@ -312,8 +309,41 @@ describe('Submission: other operations', () => {
 			data: { first_name: 'Jane' },
 			test: true,
 			signature_requests: [{ fields: ['signature', 'date'], auth_type: 'email_link', email: 'jane@example.com' }],
+			send_email: true,
 		});
 		assert.deepEqual(output, [result]);
+	});
+
+	test('Check Data checks the email settings Create Signature Request sends, only with signers', async () => {
+		const params = {
+			resource: 'submission',
+			operation: 'checkData',
+			templateId: TEMPLATE,
+			templateData: { value: {} },
+			test: false,
+			signingOrder: 'sequential',
+			emailOptions: { emailSubject: 'Please sign', reminders: { reminder: { intervalDays: 3, maxCount: 2 } } },
+		};
+		const signers = { signer: [{ email: 'jane@example.com', fields: ['signature'], authType: 'email_link' }] };
+		const ok = { body: { valid: true } };
+		const docspring = await run({ params: { ...params, signers }, responses: [ok] });
+		assert.deepEqual(docspring.requests[0].body, {
+			data: {},
+			signature_requests: [{ fields: ['signature'], auth_type: 'email_link', email: 'jane@example.com' }],
+			send_email: true,
+			signing_order: 'sequential',
+			email_subject: 'Please sign',
+			reminders: { interval_days: 3, max_count: 2 },
+		});
+		const self = await run({ params: { ...params, signers, sendEmail: 'self' }, responses: [ok] });
+		assert.deepEqual(self.requests[0].body, {
+			data: {},
+			signature_requests: [{ fields: ['signature'], auth_type: 'email_link', email: 'jane@example.com' }],
+			send_email: false,
+			signing_order: 'sequential',
+		});
+		const noSigners = await run({ params, responses: [ok] });
+		assert.deepEqual(noSigners.requests[0].body, { data: {} });
 	});
 
 	test('Generate Files asks the sync host for the formats and fails when one could not be made', async () => {
@@ -334,6 +364,26 @@ describe('Submission: other operations', () => {
 		assert.deepEqual(requests[0].body, { formats: ['png'] });
 	});
 
+	test("offers a Word template's Word document and OpenDocument file wherever it asks for formats", async () => {
+		const { properties } = new DocSpring().description;
+		const values = (property) => property.options.map((option) => option.value).sort();
+		const optionsOf = (resource) =>
+			properties.find((p) => p.name === 'options' && p.displayOptions?.show?.resource?.[0] === resource && p.options.some((o) => o.name === 'outputFormats'));
+		for (const resource of ['submission', 'submissionBatch']) {
+			const outputFormats = optionsOf(resource).options.find((o) => o.name === 'outputFormats');
+			assert.deepEqual(values(outputFormats), ['docx', 'odt', 'pdf', 'png']);
+		}
+		const formats = properties.find((p) => p.name === 'formats' && p.displayOptions?.show?.operation?.[0] === 'generateFiles');
+		assert.deepEqual(values(formats), ['docx', 'odt', 'pdf', 'png']);
+		assert.deepEqual(formats.default, ['png']);
+
+		const generated = await run({
+			params: { resource: 'submission', operation: 'generateFiles', submissionId: 'sub_1', formats: ['docx', 'odt'], options: {} },
+			responses: [{ body: submission({ files: { docx: { state: 'processed' }, odt: { state: 'processed' } } }) }],
+		});
+		assert.deepEqual(generated.requests[0].body, { formats: ['docx', 'odt'] });
+	});
+
 	test('Expire deletes the submission', async () => {
 		const { requests } = await run({
 			params: { resource: 'submission', operation: 'expire', submissionId: 'sub_1' },
@@ -351,7 +401,6 @@ describe('Submission Batch', () => {
 				resource: 'submissionBatch',
 				operation: 'create',
 				templateId: TEMPLATE,
-				templateVersion: '',
 				test: true,
 				submissions: '[{"data": {"name": "A"}}, {"data": {"name": "B"}, "metadata": {"row": 2}}]',
 				options: { metadata: '{}' },
@@ -383,7 +432,6 @@ describe('Submission Batch', () => {
 					resource: 'submissionBatch',
 					operation: 'create',
 					templateId: TEMPLATE,
-					templateVersion: '',
 					test: false,
 					submissions: [{ data: {} }, { data: {} }],
 					options: {},
@@ -449,7 +497,6 @@ describe('Signature Request', () => {
 		resource: 'signatureRequest',
 		operation: 'create',
 		templateId: TEMPLATE,
-		templateVersion: '',
 		templateData: { value: { company: 'Acme', empty: '' } },
 		signers: {
 			signer: [
@@ -466,6 +513,7 @@ describe('Signature Request', () => {
 				{ email: 'sam@example.com', fields: 'initials', authType: 'oauth', authProvider: 'google' },
 			],
 		},
+		sendEmail: 'self',
 		signingLinkType: 'email',
 		test: false,
 		options: {},
@@ -477,7 +525,7 @@ describe('Signature Request', () => {
 		signature_requests: [{ id: 'srq_1' }, { id: 'srq_2' }],
 	});
 
-	test('creates the submission on the standard host, then a signing link for each signer', async () => {
+	test('creates the submission on the standard host and, when you send the links, a signing link for each signer', async () => {
 		const { output, requests } = await run({
 			params: createParams(),
 			responses: [
@@ -500,6 +548,7 @@ describe('Signature Request', () => {
 				},
 				{ fields: ['initials'], auth_type: 'oauth', email: 'sam@example.com', auth_provider: 'google' },
 			],
+			send_email: false,
 		});
 		assert.equal(requests[1].url, 'https://api.docspring.com/api/v2/signature_requests/srq_1/tokens');
 		assert.deepEqual(requests[1].body, { type: 'email' });
@@ -531,6 +580,107 @@ describe('Signature Request', () => {
 		});
 		assert.equal(requests.length, 1);
 		assert.equal(output[0].first_signing_url, null);
+	});
+
+	test('lets DocSpring email the signers by default, and makes no signing links', async () => {
+		const params = createParams({
+			signers: {
+				signer: [
+					{ email: 'jane@example.com', fields: ['signature'], authType: 'email_link' },
+					{ email: 'sam@example.com', fields: ['initials'], authType: 'email_link' },
+				],
+			},
+		});
+		delete params.sendEmail;
+		const { output, requests } = await run({ params, responses: [{ statusCode: 201, body: created }] });
+		assert.equal(requests.length, 1);
+		assert.equal(requests[0].body.send_email, true);
+		assert.deepEqual(
+			output[0].signature_requests.map((request) => request.signing_url),
+			[null, null],
+		);
+		assert.equal(output[0].first_signature_request_id, 'srq_1');
+		assert.equal(output[0].first_signing_url, null);
+	});
+
+	test("sends DocSpring's email options, the signing order and each signer's step, leaving out empty ones and repeated addresses", async () => {
+		const { requests } = await run({
+			params: createParams({
+				sendEmail: 'docspring',
+				signingOrder: 'sequential',
+				emailOptions: {
+					emailSubject: ' Please sign {{ document.name }} ',
+					emailMessage: 'Sign by Friday.',
+					cc: 'records@example.com, legal@example.com, records@example.com',
+					replyTo: ' ',
+					notificationEmails: 'ops@example.com\nops@example.com',
+					notifyWhenSigned: true,
+					reminders: { reminder: { intervalDays: 3, maxCount: 2 } },
+				},
+				signers: {
+					signer: [
+						{ email: 'jane@example.com', fields: ['signature'], authType: 'email_link', signingStep: 1 },
+						{ email: 'sam@example.com', fields: ['initials'], authType: 'email_link', signingStep: 2 },
+					],
+				},
+			}),
+			responses: [{ statusCode: 201, body: created }],
+		});
+		assert.equal(requests.length, 1);
+		assert.deepEqual(requests[0].body, {
+			data: { company: 'Acme' },
+			signature_requests: [
+				{ fields: ['signature'], auth_type: 'email_link', signing_step: 1, email: 'jane@example.com' },
+				{ fields: ['initials'], auth_type: 'email_link', signing_step: 2, email: 'sam@example.com' },
+			],
+			send_email: true,
+			signing_order: 'sequential',
+			email_subject: 'Please sign {{ document.name }}',
+			email_message: 'Sign by Friday.',
+			cc: ['records@example.com', 'legal@example.com'],
+			notification_emails: ['ops@example.com'],
+			notify_when_signed: true,
+			reminders: { interval_days: 3, max_count: 2 },
+		});
+	});
+
+	test("leaves out DocSpring's email options when you send the links, which the API refuses then", async () => {
+		const { requests } = await run({
+			params: createParams({
+				signingOrder: 'sequential',
+				signingLinkType: 'none',
+				emailOptions: { emailSubject: 'Left over', cc: 'records@example.com', notifyWhenSigned: true },
+				signers: { signer: [{ fields: ['signature'], authType: 'password', signingStep: 0 }] },
+			}),
+			responses: [{ statusCode: 201, body: created }],
+		});
+		assert.deepEqual(requests[0].body, {
+			data: { company: 'Acme' },
+			signature_requests: [{ fields: ['signature'], auth_type: 'password' }],
+			send_email: false,
+			signing_order: 'sequential',
+		});
+	});
+
+	test('refuses an unknown Emails to Signers value before sending anything', async () => {
+		await assert.rejects(
+			run({ params: createParams({ sendEmail: 'yes' }) }),
+			/Emails to Signers must be docspring or self, not "yes"/,
+		);
+	});
+
+	test("shows DocSpring's email options only with its emails, and the link type only when you send the links", () => {
+		const { properties } = new DocSpring().description;
+		const create = properties.filter(
+			(p) => p.displayOptions?.show?.resource?.[0] === 'signatureRequest' && p.displayOptions?.show?.operation?.[0] === 'create',
+		);
+		const byName = Object.fromEntries(create.map((p) => [p.name, p]));
+		assert.equal(byName.sendEmail.default, 'docspring');
+		assert.deepEqual(byName.emailOptions.displayOptions.show.sendEmail, ['docspring']);
+		assert.deepEqual(byName.signingLinkType.displayOptions.show.sendEmail, ['self']);
+		assert.equal(byName.signingOrder.displayOptions.show.sendEmail, undefined);
+		const signerValues = byName.signers.options[0].values.map((value) => value.name);
+		assert.ok(signerValues.includes('signingStep'));
 	});
 
 	test('requires fields for each signer, and a provider for OAuth', async () => {
@@ -639,10 +789,7 @@ describe('Template', () => {
 				name: 'Invoice',
 				templateType: 'html',
 				html: '<p>{{ name }}</p>',
-				scss: '',
-				headerHtml: '',
-				footerHtml: '<p>Footer</p>',
-				options: { wait: false },
+				options: { wait: false, scss: '', headerHtml: '', footerHtml: '<p>Footer</p>' },
 			},
 			responses: [{ statusCode: 201, body: { id: 'tpl_8', document: null } }],
 		});
@@ -712,7 +859,7 @@ describe('Template', () => {
 				operation: 'publishVersion',
 				templateId: TEMPLATE,
 				versionType: 'minor',
-				versionDescription: 'New fields',
+				options: { versionDescription: 'New fields' },
 			},
 			responses: [{ statusCode: 201, body: { version: '1.1.0' } }],
 		});
@@ -724,7 +871,7 @@ describe('Template', () => {
 describe('Template Field and Folder', () => {
 	test('Get Many returns one item per field', async () => {
 		const { output, requests } = await run({
-			params: { resource: 'templateField', operation: 'getMany', templateId: TEMPLATE, templateVersion: '' },
+			params: { resource: 'templateField', operation: 'getMany', templateId: TEMPLATE },
 			responses: [{ body: { template_id: 'tpl_123', version: null, fields: [{ id: 1 }, { id: 2 }] } }],
 		});
 		assert.equal(requests[0].url, 'https://api.docspring.com/api/v2/templates/tpl_123/fields');
@@ -783,7 +930,7 @@ describe('IDs in paths', () => {
 		['Combined PDF ID', { resource: 'combinedPdf', operation: 'get', combinedPdfId: '.' }],
 		['Signature Request ID', { resource: 'signatureRequest', operation: 'get', signatureRequestId: '..' }],
 		['Signature Request ID', { resource: 'signatureRequest', operation: 'createSigningLink', signatureRequestId: '..', linkType: 'api' }],
-		['Template ID', { resource: 'template', operation: 'get', templateId: { mode: 'id', value: '..' }, templateVersion: '' }],
+		['Template ID', { resource: 'template', operation: 'get', templateId: { mode: 'id', value: '..' } }],
 		['Template ID', { resource: 'template', operation: 'move', templateId: { mode: 'id', value: '.' }, folderId: 'root' }],
 		[
 			'Template ID',
@@ -791,7 +938,6 @@ describe('IDs in paths', () => {
 				resource: 'submission',
 				operation: 'generatePdf',
 				templateId: { mode: 'id', value: ' .. ' },
-				templateVersion: '',
 				templateData: { value: {} },
 				test: false,
 				options: {},
@@ -838,7 +984,6 @@ describe('rate limits', () => {
 		resource: 'submission',
 		operation: 'generatePdf',
 		templateId: TEMPLATE,
-		templateVersion: '',
 		templateData: { value: { first_name: 'Jane' } },
 		test: true,
 		options: {},
@@ -910,9 +1055,9 @@ describe('rate limits', () => {
 			resource: 'signatureRequest',
 			operation: 'create',
 			templateId: TEMPLATE,
-			templateVersion: '',
 			templateData: { value: {} },
 			signers: { signer: [{ email: 'jane@example.com', fields: ['signature'], authType: 'email_link' }] },
+			sendEmail: 'self',
 			signingLinkType: 'email',
 			test: true,
 			options: {},
@@ -944,5 +1089,91 @@ describe('rate limits', () => {
 				},
 			);
 		});
+	});
+});
+
+describe("n8n's layout rules", () => {
+	const { properties } = new DocSpring().description;
+	const topLevel = (resource, operation) =>
+		properties.filter((p) => {
+			const show = p.displayOptions && p.displayOptions.show;
+			return show && show.resource && show.resource.includes(resource) && show.operation && show.operation.includes(operation);
+		});
+
+	test('optional inputs are in an Options or Filters collection, not at the top level', () => {
+		for (const [resource, operation, names] of [
+			['submission', 'generatePdf', ['templateVersion']],
+			['submission', 'checkData', ['templateVersion']],
+			['signatureRequest', 'create', ['templateVersion']],
+			['submissionBatch', 'create', ['templateVersion']],
+			['template', 'get', ['templateVersion']],
+			['template', 'getPageImages', ['templateVersion']],
+			['templateField', 'getMany', ['templateVersion']],
+			['template', 'create', ['scss', 'headerHtml', 'footerHtml']],
+			['template', 'publishVersion', ['versionDescription']],
+			['submission', 'getMany', ['templateId']],
+		]) {
+			const fields = topLevel(resource, operation);
+			for (const name of names) {
+				assert.equal(
+					fields.find((p) => p.name === name),
+					undefined,
+					`${resource} ${operation}: ${name} is at the top level`,
+				);
+			}
+			const collection = fields.find((p) => p.type === 'collection' && (p.name === 'options' || p.name === 'filters'));
+			assert.ok(collection, `${resource} ${operation} has no Options or Filters collection`);
+			for (const name of names) {
+				assert.ok(
+					collection.options.some((option) => option.name === name),
+					`${resource} ${operation}: ${name} isn't in its ${collection.displayName}`,
+				);
+			}
+		}
+	});
+
+	test("Template Create's options show only the ones for its template type", () => {
+		const { NodeHelpers } = require('n8n-workflow');
+		const description = new DocSpring().description;
+		const options = topLevel('template', 'create').find((p) => p.name === 'options');
+		const shown = (templateType) =>
+			options.options
+				.filter((option) =>
+					NodeHelpers.displayParameterPath({ resource: 'template', operation: 'create', templateType, options: {} }, option, 'options', null, description),
+				)
+				.map((option) => option.name)
+				.sort();
+		assert.deepEqual(shown('html'), ['folderId', 'footerHtml', 'headerHtml', 'scss', 'wait']);
+		assert.deepEqual(shown('pdf'), ['filename', 'folderId', 'wait']);
+	});
+
+	test('the template data picker follows the Template Version option', () => {
+		const mapper = topLevel('submission', 'generatePdf').find((p) => p.name === 'templateData');
+		assert.deepEqual(mapper.typeOptions.loadOptionsDependsOn, ['templateId.value', 'options.templateVersion']);
+	});
+
+	test('the read operations and batches send the Template Version option', async () => {
+		const get = await run({
+			params: { resource: 'template', operation: 'getPageImages', templateId: TEMPLATE, options: { templateVersion: '1.0.0' } },
+			responses: [{ body: { page_images: [] } }],
+		});
+		assert.deepEqual(get.requests[0].qs, { version: '1.0.0' });
+		const fields = await run({
+			params: { resource: 'templateField', operation: 'getMany', templateId: TEMPLATE, options: { templateVersion: 'latest' } },
+			responses: [{ body: { fields: [] } }],
+		});
+		assert.deepEqual(fields.requests[0].qs, { version: 'latest' });
+		const batch = await run({
+			params: {
+				resource: 'submissionBatch',
+				operation: 'create',
+				templateId: TEMPLATE,
+				test: true,
+				submissions: '[{"data": {}}]',
+				options: { templateVersion: '2.0.0' },
+			},
+			responses: [{ statusCode: 201, body: { id: 'sbb_1', state: 'processed', submissions: [] } }],
+		});
+		assert.equal(batch.requests[0].body.template_version, '2.0.0');
 	});
 });

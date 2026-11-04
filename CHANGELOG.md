@@ -1,6 +1,33 @@
 # Changelog
 
-## 1.0.0 (unreleased)
+## 1.1.0 (unreleased)
+
+Needs a DocSpring release that emails signers: older releases refuse `send_email`, so Signature Request → Create, and
+Check Data with signers, would fail on them. Self-hosted (Enterprise) installs need that release too; until then, keep
+using 1.0.0.
+
+- **Emails to Signers** on Signature Request → Create: DocSpring emails each signer a link to sign (the default, as in
+  the API), with any reminders and the signed PDF once everyone has signed; or you send the links yourself. With
+  DocSpring's emails you can set the subject, a message, CC addresses, reminders, the reply-to address, notification
+  emails and a notification each time someone signs, and the node makes no signing links, so a workflow can't send a
+  second one. Sending the links yourself works as before, with the same link types and every authentication type.
+- **Signing Order** (everyone at once, or one step at a time) and each signer's **Signing Step**, either way.
+- **Check Data** checks the same settings with its signers.
+- **Trigger:** the `signature_request.sent` (DocSpring first emailed someone their link) and
+  `signature_request.email_bounced` events.
+- **Word templates:** Output Formats on Generate PDF and Submission Batch → Create offers a Word template's Word
+  document and OpenDocument file (`files.docx`, `files.odt`), and Generate Files can add them, or a PDF, to a Word
+  template's processed submission.
+- The template picker leaves out a search of only spaces, which API v2 refuses.
+- CC and Notification Emails send each address once (the API refuses a list with repeats).
+- **Options:** Template Version is in each operation's Options; Template → Create's SCSS, Header HTML and Footer
+  HTML and Publish Version's Description are in their Options; Submission → Get Many's template is a filter. n8n's
+  review of community nodes asks for optional inputs there.
+- Template → Create shows Filename only for a PDF template (an HTML template has no PDF to name).
+- The node's subtitle on the canvas is its operation and resource (such as `generatePdf: submission`), as n8n's
+  review asks.
+
+## 1.0.0
 
 - **DocSpring API v2.** Every operation calls [API v2](https://docspring.com/docs/api-guide/migrating-to-api-v2/),
   and the trigger creates version 4 webhooks. Outputs are API v2 resources: a submission's PDF link is

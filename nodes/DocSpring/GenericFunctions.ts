@@ -237,7 +237,8 @@ export async function docSpringApiRequest(
 				headers: { ...options.headers },
 			})) as IN8nHttpFullResponse;
 		} catch (error) {
-			if (error instanceof NodeApiError || error instanceof NodeOperationError) throw error;
+			// Both constructors return an error that's already of their class unchanged.
+			if (error instanceof NodeOperationError) throw new NodeOperationError(node, error, { itemIndex });
 			throw new NodeApiError(node, error as JsonObject, { itemIndex });
 		}
 		if (Number(response?.statusCode) !== 429 || retries >= rateLimitRetry.maxRetries) break;

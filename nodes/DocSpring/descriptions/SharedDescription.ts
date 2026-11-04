@@ -31,32 +31,47 @@ export function templateLocator(show: Show, options: { required?: boolean; descr
 	return property;
 }
 
-// The template version for operations that create or check a submission. API v2 uses the latest published
-// version when it's left out (the draft when none has been published).
-export function submissionTemplateVersion(show: Show): INodeProperties {
-	return {
-		displayName: 'Template Version',
-		name: 'templateVersion',
-		type: 'string',
-		default: '',
-		placeholder: 'latest',
-		description:
-			'Leave empty for the latest published version (the draft when none has been published). Enter "draft", "latest", a version such as 1.2.0, or 1 for the latest 1.x.x.',
-		displayOptions: { show },
-	};
+// The template picker as an option or a filter: inside a collection, so without displayOptions.
+export function templateLocatorOption(description: string): INodeProperties {
+	const property = templateLocator({}, { required: false, description });
+	delete property.displayOptions;
+	return property;
 }
 
-// The template version for operations that read a template. API v2 reads the draft when it's left out.
-export function readTemplateVersion(show: Show): INodeProperties {
+// The template version (an option: n8n keeps optional inputs in a collection) for operations that create or check a
+// submission. API v2 uses the latest published version when it's left out (the draft when none has been published).
+// The template's field pickers read it as options.templateVersion.
+export const submissionTemplateVersionOption: INodeProperties = {
+	displayName: 'Template Version',
+	name: 'templateVersion',
+	type: 'string',
+	default: '',
+	placeholder: 'latest',
+	description:
+		'Leave this option out for the latest published version (the draft when none has been published). Enter "draft", "latest", a version such as 1.2.0, or 1 for the latest 1.x.x.',
+};
+
+// The template version option for operations that read a template. API v2 reads the draft when it's left out.
+export const readTemplateVersionOption: INodeProperties = {
+	displayName: 'Template Version',
+	name: 'templateVersion',
+	type: 'string',
+	default: '',
+	placeholder: 'draft',
+	description:
+		'Leave this option out for the draft. Enter "latest", a published version such as 1.2.0, or 1 for the latest 1.x.x.',
+};
+
+// A collection that holds only the template version, for operations with no other options.
+export function templateVersionOptions(show: Show, option: INodeProperties): INodeProperties {
 	return {
-		displayName: 'Template Version',
-		name: 'templateVersion',
-		type: 'string',
-		default: '',
-		placeholder: 'draft',
-		description:
-			'Leave empty for the draft. Enter "latest", a published version such as 1.2.0, or 1 for the latest 1.x.x.',
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add Option',
+		default: {},
 		displayOptions: { show },
+		options: [option],
 	};
 }
 
@@ -69,7 +84,7 @@ export function templateDataMapper(show: Show, allOptional: boolean): INodePrope
 		default: { mappingMode: 'defineBelow', value: null },
 		noDataExpression: true,
 		typeOptions: {
-			loadOptionsDependsOn: ['templateId.value', 'templateVersion'],
+			loadOptionsDependsOn: ['templateId.value', 'options.templateVersion'],
 			resourceMapper: {
 				resourceMapperMethod: allOptional ? 'getTemplateFieldsOptional' : 'getTemplateFields',
 				mode: 'add',
@@ -93,6 +108,137 @@ export function testField(show: Show): INodeProperties {
 			'Whether to make a test submission. Test PDFs have a watermark and are free; live PDFs use credits. A test API token only makes test submissions.',
 		displayOptions: { show },
 	};
+}
+
+// Who sends the signers their links: DocSpring emails them (the API's default) or you send the links yourself. Create
+// Signature Request and Check Data both offer it, so a check covers what Create sends. DocSpring's email options show
+// only with its emails: the API refuses them when it emails nobody.
+export function signerEmailFields(show: Show): INodeProperties[] {
+	return [
+		{
+			displayName: 'Emails to Signers',
+			name: 'sendEmail',
+			type: 'options',
+			options: [
+				{
+					name: 'DocSpring Emails Each Signer Their Link',
+					value: 'docspring',
+					description: 'With any reminders, and the signed PDF once everyone has signed',
+				},
+				{
+					name: 'I Send the Links, or Open Them in My App',
+					value: 'self',
+					description: 'For people you send the link to yourself or who sign in your app',
+				},
+			],
+			default: 'docspring',
+			description:
+				"DocSpring emails each signer a link to sign, any reminders, and the signed PDF once everyone has signed. A test submission can only email members of your DocSpring team: other addresses are refused. DocSpring doesn't email the signers of a form library template: choose I send the links for one.",
+			displayOptions: { show },
+		},
+		{
+			displayName: 'Signing Order',
+			name: 'signingOrder',
+			type: 'options',
+			options: [
+				{ name: 'Everyone at Once', value: 'parallel' },
+				{ name: 'One Step at a Time', value: 'sequential' },
+			],
+			default: 'parallel',
+			description:
+				"One step at a time: people sign in the order of their Signing Step, or of the Signers list. DocSpring emails each step when the one before it is done. When you send the links, send each step's once the step before it has signed, and make a new one with Signature Request → Create Signing Link if it has expired (email links last 7 days, API links 24 hours).",
+			displayOptions: { show },
+		},
+		{
+			displayName: 'Email Options',
+			name: 'emailOptions',
+			type: 'collection',
+			placeholder: 'Add Email Option',
+			default: {},
+			displayOptions: { show: { ...show, sendEmail: ['docspring'] } },
+			options: [
+				{
+					displayName: 'CC',
+					name: 'cc',
+					type: 'string',
+					default: '',
+					placeholder: 'records@example.com',
+					description: "Up to 10 people who get the signed PDF, separated by commas. They don't sign.",
+				},
+				{
+					displayName: 'Email Subject',
+					name: 'emailSubject',
+					type: 'string',
+					default: '',
+					description:
+						'The subject of the emails that ask people to sign. Leave it empty for "&lt;your name&gt; sent you &lt;document&gt; to sign".',
+				},
+				{
+					displayName: 'Message',
+					name: 'emailMessage',
+					type: 'string',
+					typeOptions: { rows: 4 },
+					default: '',
+					description:
+						'A message for the signers, shown above the signing button. Links and web addresses are shown as plain text.',
+				},
+				{
+					displayName: 'Notification Emails',
+					name: 'notificationEmails',
+					type: 'string',
+					default: '',
+					description:
+						"Up to 10 addresses, separated by commas, that DocSpring tells when the document is completed or declined, or an email bounces or can't be sent: members of your DocSpring team or addresses at your verified email domains. Leave it empty for the template's notification addresses (the account owner when it has none).",
+				},
+				{
+					displayName: 'Notify When Each Person Signs',
+					name: 'notifyWhenSigned',
+					type: 'boolean',
+					default: false,
+					description: 'Whether to also email the notification addresses each time someone signs',
+				},
+				{
+					displayName: 'Reminders',
+					name: 'reminders',
+					type: 'fixedCollection',
+					default: {},
+					placeholder: 'Add Reminders',
+					description: "Remind people who haven't signed",
+					options: [
+						{
+							name: 'reminder',
+							displayName: 'Reminder',
+							values: [
+								{
+									displayName: 'Days Between Reminders',
+									name: 'intervalDays',
+									type: 'number',
+									typeOptions: { minValue: 1, maxValue: 30 },
+									default: 3,
+								},
+								{
+									displayName: 'Most Reminders per Person',
+									name: 'maxCount',
+									type: 'number',
+									typeOptions: { minValue: 1, maxValue: 10 },
+									default: 2,
+								},
+							],
+						},
+					],
+				},
+				{
+					displayName: 'Reply-To Address',
+					name: 'replyTo',
+					type: 'string',
+					default: '',
+					placeholder: 'name@email.com',
+					description:
+						"Where replies to the emails go: a member of your DocSpring team, or an address at one of your verified email domains. Leave it empty for the template's reply-to address (the account owner when it has none).",
+				},
+			],
+		},
+	];
 }
 
 // The people who sign the PDF and fill in their fields first. Required to create a signature request; optional
@@ -136,7 +282,8 @@ export function signersField(show: Show, required: boolean): INodeProperties {
 							{ name: 'SAML', value: 'saml' },
 						],
 						default: 'email_link',
-						description: 'How your app checked who the person is before it showed them the signature request',
+						description:
+							"How the person is identified before they see the form. Choose Email Link when they get their link by email, from DocSpring or from you: DocSpring's emails always use it. The other types are for people you send the link to yourself or who sign in your app.",
 					},
 					{
 						displayName: 'Email',
@@ -144,6 +291,7 @@ export function signersField(show: Show, required: boolean): INodeProperties {
 						type: 'string',
 						placeholder: 'name@email.com',
 						default: '',
+						description: 'Required when DocSpring emails the signers',
 					},
 					{
 						displayName: 'Field Names or IDs',
@@ -151,7 +299,7 @@ export function signersField(show: Show, required: boolean): INodeProperties {
 						type: 'multiOptions',
 						typeOptions: {
 							loadOptionsMethod: 'getTemplateFieldNames',
-							loadOptionsDependsOn: ['templateId.value', 'templateVersion'],
+							loadOptionsDependsOn: ['templateId.value', 'options.templateVersion'],
 						},
 						default: [],
 						description:
@@ -185,6 +333,15 @@ export function signersField(show: Show, required: boolean): INodeProperties {
 						placeholder: 'Signer 1',
 						description:
 							"Which of the template's signers the person is (Signer 1, Signer 2, …). Set it for every signer or for none.",
+					},
+					{
+						displayName: 'Signing Step',
+						name: 'signingStep',
+						type: 'number',
+						typeOptions: { minValue: 0, maxValue: 100 },
+						default: 0,
+						description:
+							'With Signing Order One Step at a Time: when this person signs. Everyone in step 1 signs first, then step 2, and so on, and people in the same step sign in any order. Give every signer a step, or leave them all at 0 to have them sign in the order of the Signers list.',
 					},
 				],
 			},
@@ -277,6 +434,19 @@ export function waitOption(displayName: string, description: string): INodePrope
 		description,
 	};
 }
+
+// The files a submission can make. Word documents and OpenDocument files come only from Word templates (the API
+// refuses them for others), and PNG page images bring the PDF with them.
+export const outputFormatOptions = [
+	{
+		name: 'OpenDocument File (Word Templates)',
+		value: 'odt',
+		description: "An OpenDocument file (.odt) converted from a Word template's Word document",
+	},
+	{ name: 'PDF', value: 'pdf' },
+	{ name: 'PNG Page Images', value: 'png', description: 'An image of each page of the PDF, up to 100 pages' },
+	{ name: 'Word Document (Word Templates)', value: 'docx', description: 'The filled-in Word document (.docx)' },
+];
 
 export const metadataOption: INodeProperties = {
 	displayName: 'Metadata',

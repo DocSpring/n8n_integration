@@ -37,8 +37,8 @@ function requiredString(ctx: IExecuteFunctions, name: string, label: string, i: 
 	return value;
 }
 
-function templateIdParam(ctx: IExecuteFunctions, i: number, required = true): string {
-	const value = ctx.getNodeParameter('templateId', i, '', { extractValue: true }) as unknown;
+function templateIdParam(ctx: IExecuteFunctions, i: number, required = true, name = 'templateId'): string {
+	const value = ctx.getNodeParameter(name, i, '', { extractValue: true }) as unknown;
 	const id = value === undefined || value === null ? '' : String(value).trim();
 	if (!id && required) throw new NodeOperationError(ctx.getNode(), 'Choose a template', { itemIndex: i });
 	return id;
@@ -49,7 +49,7 @@ function optionsParam(ctx: IExecuteFunctions, i: number, name = 'options'): IDat
 }
 
 function versionQuery(ctx: IExecuteFunctions, i: number): IDataObject {
-	const version = stringParam(ctx, 'templateVersion', i);
+	const version = stringParam(ctx, 'options.templateVersion', i);
 	return version ? { version } : {};
 }
 
@@ -124,6 +124,9 @@ function signatureRequests(ctx: IExecuteFunctions, i: number, required: boolean)
 		}
 		const authType = String(row.authType || 'email_link');
 		const entry: IDataObject = { fields, auth_type: authType };
+		// 0 (the default) is no step: without steps, people sign in the order of the list.
+		const signingStep = toInteger(row.signingStep, `${signer}: Signing Step`, node, i);
+		if (signingStep) entry.signing_step = signingStep;
 		for (const [key, apiKey] of [
 			['name', 'name'],
 			['email', 'email'],
@@ -214,7 +217,8 @@ const checkData: Operation = async function (i) {
 	const templateId = templateIdParam(this, i);
 	const body: IDataObject = { data: templateData(this, i), ...testBody(this, i) };
 	const signers = signatureRequests(this, i, false);
-	if (signers) body.signature_requests = signers;
+	// The API refuses the email settings without signature requests.
+	if (signers) Object.assign(body, { signature_requests: signers }, emailSettings(this, i));
 	return request(
 		this,
 		{
@@ -261,7 +265,7 @@ const getManySubmissions: Operation = async function (i) {
 	const node = this.getNode();
 	const filters = optionsParam(this, i, 'filters');
 	const qs: IDataObject = {};
-	const templateId = templateIdParam(this, i, false);
+	const templateId = templateIdParam(this, i, false, 'filters.templateId');
 	if (templateId) qs.template_id = templateId;
 	if (filters.mode === 'live' || filters.mode === 'test') qs.test = filters.mode === 'test';
 	const timeZone = this.getTimezone();
@@ -279,7 +283,7 @@ const createSubmissionBatch: Operation = async function (i) {
 	const node = this.getNode();
 	const options = optionsParam(this, i);
 	const body: IDataObject = { template_id: templateIdParam(this, i) };
-	const version = stringParam(this, 'templateVersion', i);
+	const version = stringParam(this, 'options.templateVersion', i);
 	if (version) body.template_version = version;
 	Object.assign(body, testBody(this, i));
 	const outputFormats = parseList(options.outputFormats);
@@ -353,8 +357,44 @@ const getCombinedPdf: Operation = async function (i) {
 
 // ─── Signature requests ───────────────────────────────────────────────────────
 
-// Creates a submission with signature requests on the standard host (it waits for people, not for a PDF), then
-// a signing link for each signature request. Adds each one's `signing_url`, and `first_signature_request_id` and
+// The submission's email settings: `send_email`, the signing order, and DocSpring's email options when it emails the
+// signers. Only options with a value are sent: the API refuses blank ones, and all of them when it emails nobody.
+function emailSettings(ctx: IExecuteFunctions, i: number): IDataObject {
+	const node = ctx.getNode();
+	const mode = stringParam(ctx, 'sendEmail', i) || 'docspring';
+	if (mode !== 'docspring' && mode !== 'self') {
+		throw new NodeOperationError(node, `Emails to Signers must be docspring or self, not "${mode}"`, { itemIndex: i });
+	}
+	const body: IDataObject = { send_email: mode === 'docspring' };
+	const signingOrder = stringParam(ctx, 'signingOrder', i);
+	if (signingOrder) body.signing_order = signingOrder;
+	if (mode === 'self') return body;
+
+	const options = optionsParam(ctx, i, 'emailOptions');
+	const text = (value: unknown) => (value === undefined || value === null ? '' : String(value).trim());
+	if (text(options.emailSubject)) body.email_subject = text(options.emailSubject);
+	if (text(options.emailMessage)) body.email_message = text(options.emailMessage);
+	// Each address once: the API refuses a list with repeats.
+	const cc = [...new Set(parseList(options.cc))];
+	if (cc.length) body.cc = cc;
+	if (text(options.replyTo)) body.reply_to = text(options.replyTo);
+	const notificationEmails = [...new Set(parseList(options.notificationEmails))];
+	if (notificationEmails.length) body.notification_emails = notificationEmails;
+	if (options.notifyWhenSigned !== undefined) {
+		body.notify_when_signed = toBoolean(options.notifyWhenSigned, 'Notify When Each Person Signs', node, i);
+	}
+	const reminder = ((options.reminders as IDataObject | undefined)?.reminder ?? undefined) as IDataObject | undefined;
+	if (reminder) {
+		body.reminders = {
+			interval_days: toInteger(reminder.intervalDays, 'Days Between Reminders', node, i),
+			max_count: toInteger(reminder.maxCount, 'Most Reminders per Person', node, i),
+		};
+	}
+	return body;
+}
+
+// Creates a submission with signature requests on the standard host (it waits for people, not for a PDF), then,
+// when you send the links, a signing link for each signature request. Adds each one's `signing_url`, and `first_signature_request_id` and
 // `first_signing_url` for workflows with one signer.
 const createSignatureRequest: Operation = async function (i) {
 	const templateId = templateIdParam(this, i);
@@ -363,6 +403,7 @@ const createSignatureRequest: Operation = async function (i) {
 		data: templateData(this, i),
 		signature_requests: signatureRequests(this, i, true),
 		...testBody(this, i),
+		...emailSettings(this, i),
 	};
 	const node = this.getNode();
 	const expiresIn = toInteger(options.expiresIn, 'Expires In', node, i);
@@ -377,7 +418,8 @@ const createSignatureRequest: Operation = async function (i) {
 		i,
 	);
 
-	const linkType = stringParam(this, 'signingLinkType', i) || 'email';
+	// DocSpring's emails have their own links: a link here would let a workflow send each signer a second one.
+	const linkType = body.send_email ? 'none' : stringParam(this, 'signingLinkType', i) || 'email';
 	const created = Array.isArray(submission.signature_requests) ? (submission.signature_requests as IDataObject[]) : [];
 	const withLinks: IDataObject[] = [];
 	for (const signatureRequest of created) {
@@ -461,9 +503,9 @@ const createTemplate: Operation = async function (i) {
 	} else {
 		for (const [param, key] of [
 			['html', 'html'],
-			['scss', 'scss'],
-			['headerHtml', 'header_html'],
-			['footerHtml', 'footer_html'],
+			['options.scss', 'scss'],
+			['options.headerHtml', 'header_html'],
+			['options.footerHtml', 'footer_html'],
 		]) {
 			const value = this.getNodeParameter(param, i, '') as string;
 			if (typeof value === 'string' && value.trim()) body[key] = value;
@@ -527,7 +569,7 @@ const moveTemplate: Operation = async function (i) {
 const publishTemplateVersion: Operation = async function (i) {
 	const id = templateIdParam(this, i);
 	const body: IDataObject = { version_type: stringParam(this, 'versionType', i) || 'patch' };
-	const description = stringParam(this, 'versionDescription', i);
+	const description = stringParam(this, 'options.versionDescription', i);
 	if (description) body.description = description;
 	return request(this, { method: 'POST', path: `/templates/${pathId(this, id, 'Template ID', i)}/publish_version`, body }, i);
 };

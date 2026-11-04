@@ -1,6 +1,6 @@
 // The package version, sent in every request's User-Agent so DocSpring's API logs can count n8n users.
 // Keep it in step with package.json (a test checks it).
-export const PACKAGE_VERSION = '1.0.0';
+export const PACKAGE_VERSION = '1.1.0';
 
 export const USER_AGENT = `docspring-n8n/${PACKAGE_VERSION}`;
 

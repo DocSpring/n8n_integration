@@ -26,17 +26,20 @@ Self-Hosted / Enterprise) and paste the token ID and secret. They're sent with H
 
 A test API token only makes free test PDFs (with a watermark), so you can build a workflow without using credits.
 
-**Self-hosted DocSpring:** this version needs a DocSpring release with API v2. If the credential test says the server
-doesn't have API v2 yet, upgrade DocSpring, or install version 0.1.4 of this node until you can.
+**Self-hosted DocSpring:** this version needs a DocSpring release with API v2 that emails signers. If the credential
+test says the server doesn't have API v2 yet, upgrade DocSpring, or install version 0.1.4 of this node until you can.
+With API v2 but an older release, install version 1.0.0: this version's Signature Request → Create fails there.
 
 ## Operations
 
 - **Submission**
-  - **Generate PDF**: fill in a template with data and generate a PDF (and PNG page images if you ask for them).
+  - **Generate PDF**: fill in a template with data and generate a PDF (and PNG page images if you ask for them). A
+    Word template can also make its Word document and an OpenDocument file (`files.docx`, `files.odt`).
   - **Check Data**: check data, and optionally signers, against a template's fields without generating anything or
     using credits.
   - **Get** a submission, or **Get Many** (by template, live or test, and creation date).
-  - **Generate Files**: add PNG page images to a submission that has been processed.
+  - **Generate Files**: add PNG page images to a submission that has been processed, or a Word template
+    submission's PDF, Word document or OpenDocument file.
   - **Expire**: delete a submission's data and files now.
 - **Submission Batch**
   - **Create**: generate up to 50 PDFs in one request (the submissions are a JSON array).
@@ -45,12 +48,13 @@ doesn't have API v2 yet, upgrade DocSpring, or install version 0.1.4 of this nod
   - **Combine PDFs**: merge submissions, combined PDFs, templates, custom files and URLs into one PDF.
   - **Get** a combined PDF.
 - **Signature Request**
-  - **Create**: create a submission that waits for people to fill in and sign it, with a signing link for each signer.
+  - **Create**: create a submission that waits for people to fill in and sign it. DocSpring emails each signer their
+    link, or you send the links yourself.
   - **Create Signing Link**: create a new link for a signature request.
   - **Get** a signature request.
 - **Template**
   - **Create**: a PDF template from a PDF (an input binary field or an https:// URL), with optional AI field
-    detection, or an HTML template.
+    detection, or an HTML template (its styles, header and footer are in **Options**).
   - **Get**, **Get Many** (by name and folder), **Get Page Images**.
   - **Replace PDF**: replace a PDF template's PDF, keeping its fields (or reimporting them from the new PDF).
   - **Copy**, **Move** to a folder or the root, **Publish Version**.
@@ -60,7 +64,7 @@ doesn't have API v2 yet, upgrade DocSpring, or install version 0.1.4 of this nod
 ### Template data
 
 Generate PDF, Check Data and Create Signature Request show a field for each of the template's fields, from the
-template version you choose (the latest published version by default). Date fields take dates as `YYYY-MM-DD`; their
+template version you choose in **Options** (the latest published version by default). Date fields take dates as `YYYY-MM-DD`; their
 names show the format. Checkbox fields are **Leave Blank** (nothing is sent), **True** or **False**; they start blank,
 so a signer can tick a checkbox you didn't set. From an expression, give `true` or `false` (not text). Turn on
 **Attempt to convert types** in the field list if your other values arrive as text (such as `"42"` for a number
@@ -75,14 +79,29 @@ or the trigger. If DocSpring couldn't generate the PDF, the node fails with the 
 ### Signature requests
 
 Each signer needs the fields they fill in. Choose them from the template's fields (at the template version you
-chose, or the latest), or set them with an expression.
+chose in **Options**, or the latest), or set them with an expression.
 **Authentication** says how your app checked who the person is (Email Link by default); OAuth also needs an **Auth
 Provider**, such as `google`. Set **Role** (`Signer 1`, `Signer 2`, …) for every signer or for none.
 
-**Signing Links** creates a link for each signer: an **email link** lasts 7 days and an **API link** 24 hours, and a
-form that opened in time keeps working for 7 more days. The output adds `signing_url` to each item in
-`signature_requests`, and `first_signature_request_id` and `first_signing_url` for workflows with one signer. Use
-**Create Signing Link** when a link has expired.
+**Emails to Signers** says who sends each signer their link:
+
+- **DocSpring Emails Each Signer Their Link** (the default): DocSpring emails each signer a link to sign, any
+  reminders, and the signed PDF once everyone has signed. Each signer needs an **Email**. In **Email Options** you can
+  set the subject, a message, CC addresses, reminders, the reply-to address, notification emails and a notification
+  each time someone signs. The node makes no signing links, so a workflow can't send a second one: `signing_url` is
+  `null`. A test submission can only email members of your DocSpring team: other addresses are refused.
+- **I Send the Links, or Open Them in My App**: **Signing Links** creates a link for each signer: an **email link**
+  lasts 7 days and an **API link** 24 hours, and a form that opened in time keeps working for 7 more days. The output
+  adds `signing_url` to each item in `signature_requests`, and `first_signature_request_id` and `first_signing_url`
+  for workflows with one signer. Use **Create Signing Link** when a link has expired. DocSpring doesn't email the
+  signers of a form library template: choose this for one.
+
+**Signing Order** is **Everyone at Once** or **One Step at a Time**: people sign in the order of their **Signing Step**
+(set it for every signer or for none), or of the signers. DocSpring emails each step when the one before it is done.
+When you send the links, send each step's once the step before it has signed, and make a new one with **Create Signing
+Link** if it has expired.
+
+**Check Data** takes the same settings with its signers, so it checks what Create will send.
 
 ### Rate limits
 

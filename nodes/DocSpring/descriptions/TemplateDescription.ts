@@ -3,9 +3,10 @@ import type { INodeProperties } from 'n8n-workflow';
 import {
 	documentSourceFields,
 	folderOptionsField,
-	readTemplateVersion,
+	readTemplateVersionOption,
 	returnAllAndLimit,
 	templateLocator,
+	templateVersionOptions,
 	waitOption,
 } from './SharedDescription';
 
@@ -76,7 +77,7 @@ const createHtml = { resource: ['template'], operation: ['create'], templateType
 
 export const templateFields: INodeProperties[] = [
 	templateLocator(show('copy', 'get', 'getPageImages', 'move', 'publishVersion', 'replacePdf')),
-	readTemplateVersion(show('get', 'getPageImages')),
+	templateVersionOptions(show('get', 'getPageImages'), readTemplateVersionOption),
 
 	// ─── Get Many ─────────────────────────────────────────────────────────
 	...returnAllAndLimit(show('getMany')),
@@ -200,32 +201,6 @@ export const templateFields: INodeProperties[] = [
 		displayOptions: { show: createHtml },
 	},
 	{
-		displayName: 'SCSS',
-		name: 'scss',
-		type: 'string',
-		typeOptions: { rows: 6 },
-		default: '',
-		displayOptions: { show: createHtml },
-	},
-	{
-		displayName: 'Header HTML',
-		name: 'headerHtml',
-		type: 'string',
-		typeOptions: { rows: 3 },
-		default: '',
-		description: 'HTML printed at the top of each page',
-		displayOptions: { show: createHtml },
-	},
-	{
-		displayName: 'Footer HTML',
-		name: 'footerHtml',
-		type: 'string',
-		typeOptions: { rows: 3 },
-		default: '',
-		description: 'HTML printed at the bottom of each page',
-		displayOptions: { show: createHtml },
-	},
-	{
 		displayName: 'Options',
 		name: 'options',
 		type: 'collection',
@@ -240,8 +215,36 @@ export const templateFields: INodeProperties[] = [
 				default: '',
 				placeholder: 'form.pdf',
 				description: "The PDF's file name. Left out, it's the binary file's name or the last part of the URL.",
+				displayOptions: { show: { '/templateType': ['pdf'] } },
 			},
 			folderOptionsField('Folder Name or ID', 'folderId', 'The folder to create the template in', false),
+			{
+				displayName: 'Footer HTML',
+				name: 'footerHtml',
+				type: 'string',
+				typeOptions: { rows: 3 },
+				default: '',
+				description: 'HTML printed at the bottom of each page',
+				displayOptions: { show: { '/templateType': ['html'] } },
+			},
+			{
+				displayName: 'Header HTML',
+				name: 'headerHtml',
+				type: 'string',
+				typeOptions: { rows: 3 },
+				default: '',
+				description: 'HTML printed at the top of each page',
+				displayOptions: { show: { '/templateType': ['html'] } },
+			},
+			{
+				displayName: 'SCSS',
+				name: 'scss',
+				type: 'string',
+				typeOptions: { rows: 6 },
+				default: '',
+				description: "The template's styles, in SCSS",
+				displayOptions: { show: { '/templateType': ['html'] } },
+			},
 			waitOption(
 				'Wait for PDF',
 				"Whether to wait until DocSpring has processed the template's PDF. Turn it off to get the template straight away.",
@@ -336,11 +339,20 @@ export const templateFields: INodeProperties[] = [
 		displayOptions: { show: show('publishVersion') },
 	},
 	{
-		displayName: 'Description',
-		name: 'versionDescription',
-		type: 'string',
-		default: '',
-		description: 'What changed in this version',
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add Option',
+		default: {},
 		displayOptions: { show: show('publishVersion') },
+		options: [
+			{
+				displayName: 'Description',
+				name: 'versionDescription',
+				type: 'string',
+				default: '',
+				description: 'What changed in this version',
+			},
+		],
 	},
 ];

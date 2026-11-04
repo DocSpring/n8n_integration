@@ -1,6 +1,13 @@
 import type { INodeProperties } from 'n8n-workflow';
 
-import { metadataOption, submissionTemplateVersion, templateLocator, testField, waitOption } from './SharedDescription';
+import {
+	metadataOption,
+	outputFormatOptions,
+	submissionTemplateVersionOption,
+	templateLocator,
+	testField,
+	waitOption,
+} from './SharedDescription';
 
 export const submissionBatchOperations: INodeProperties[] = [
 	{
@@ -34,7 +41,6 @@ export const submissionBatchFields: INodeProperties[] = [
 	templateLocator(create, {
 		description: "The template for each submission that doesn't name its own template",
 	}),
-	submissionTemplateVersion(create),
 	testField(create),
 	{
 		displayName: 'Submissions',
@@ -59,12 +65,16 @@ export const submissionBatchFields: INodeProperties[] = [
 				displayName: 'Output Formats',
 				name: 'outputFormats',
 				type: 'multiOptions',
-				options: [
-					{ name: 'PDF', value: 'pdf' },
-					{ name: 'PNG Page Images', value: 'png', description: 'An image of each page, up to 100 pages' },
-				],
+				options: outputFormatOptions,
 				default: ['pdf'],
-				description: "What each submission makes, unless it sets its own output_formats",
+				description:
+					"What each submission makes, unless it sets its own output_formats. Leave this option out for what each template makes: the PDF, or what a Word template is set to make.",
+			},
+			{
+				...submissionTemplateVersionOption,
+				description:
+					"The version of the template for each submission that doesn't set its own template_version. " +
+					submissionTemplateVersionOption.description,
 			},
 			waitOption(
 				'Wait for PDFs',
