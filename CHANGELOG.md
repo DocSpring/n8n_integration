@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- An error lists each problem once: the details the message already names no longer get a line of their own as well.
+
 ## 1.1.0
 
 Needs a DocSpring release that emails signers: older releases refuse `send_email`, so Signature Request → Create, and

@@ -123,6 +123,23 @@ const POLLING_TIMEOUT_MESSAGES: Array<[string, (id: string) => string]> = [
 	],
 ];
 
+// API v2 builds most error messages from the first three details: "Invalid request: /name is required; /size must be
+// an integer (and 2 more)". A detail the message already has gets no line of its own, unless it adds a submission ID
+// (a batch's).
+function inMessage(detail: IDataObject, message: string): boolean {
+	if (detail.submission_id) return false;
+	if (typeof detail.message !== 'string' || !detail.message) return false;
+	const where =
+		detail.pointer === ''
+			? 'the request body'
+			: typeof detail.pointer === 'string' && detail.pointer
+				? detail.pointer
+				: typeof detail.parameter === 'string'
+					? detail.parameter
+					: '';
+	return message.includes(`${where} ${detail.message}`.trim());
+}
+
 // Turns an API v2 error response into the text the node shows:
 //   DocSpring API error <status> <code>: <message>
 //   <pointer or parameter>: <detail message>   (one line per detail)
@@ -155,7 +172,7 @@ export function formatApiError(status: number, body: unknown, selfHosted: boolea
 	const lines: string[] = [];
 	const details = Array.isArray(error.details) ? error.details : [];
 	for (const detail of details) {
-		if (!isObject(detail)) continue;
+		if (!isObject(detail) || inMessage(detail, message)) continue;
 		const where =
 			typeof detail.pointer === 'string' && detail.pointer !== ''
 				? detail.pointer
