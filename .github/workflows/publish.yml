@@ -27,7 +27,9 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
+          # Not lts/*: Node 26 became LTS in October 2026, and n8n-workflow's isolated-vm doesn't build on it
+          # (the v1.1.1 publish failed in npm ci).
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
 
