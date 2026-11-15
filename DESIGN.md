@@ -45,7 +45,7 @@ a new node version (n8n keeps each saved node's `typeVersion`).
 
 `docSpringApiRequest()` in `GenericFunctions.ts` sends every request:
 
-- **Hosts.** US `api.docspring.com`, EU `api-eu.docspring.com`; operations that make a file (Generate PDF, batch
+- **Hosts.** US `api.docspring.com`, EU `api-eu.docspring.com`; operations that make a file (Submission Create, batch
   Create, Combine PDFs, template Create and Replace PDF, Generate Files) use the sync hosts
   (`sync.api.docspring.com`, `sync.api-eu.docspring.com`) with `?wait=true`, or `wait=false` when the user turns
   waiting off. Self-hosted uses its custom host for both (`https://` added when there's no scheme). Path prefix
@@ -77,7 +77,7 @@ a new node version (n8n keeps each saved node's `typeVersion`).
 
 | Resource | Operation | API v2 |
 | --- | --- | --- |
-| Submission | Generate PDF | `POST /templates/{id}/submissions` (sync) |
+| Submission | Create (value `generatePdf`) | `POST /templates/{id}/submissions` (sync) |
 | | Check Data | `POST /templates/{id}/submissions/validate` (returns `valid` and the error; doesn't throw) |
 | | Get / Get Many | `GET /submissions/{id}` / `GET /submissions` (`template_id`, `test`, `created_after/before`, `include_data`) |
 | | Generate Files | `POST /submissions/{id}/generate_files` (sync) |
@@ -161,6 +161,10 @@ same settings (`signerEmailFields`) and sends them only with its signers, since 
   resource) plus `resource_type` (the event name before the first dot) and `resource_id` (`data.id`).
 
 ## Naming
+
+Name an operation that makes a submission for submissions, not PDFs: a Word template's submission makes a Word
+document or an OpenDocument file too. Keep its value (`generatePdf`): saved workflows store it. An operation that sends
+submission data accepts everything the API accepts: lists, nested objects, booleans and numbers as well as text.
 
 Signature requests (never "data requests"), combined PDFs (never "combined submissions") and IDs (never "UIDs"), in
 labels, values and output. The PDF password option is labelled "Encrypt PDF With Passphrase" (n8n's linter reserves

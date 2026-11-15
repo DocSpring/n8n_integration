@@ -20,8 +20,8 @@ export const submissionBatchOperations: INodeProperties[] = [
 			{
 				name: 'Create',
 				value: 'create',
-				action: 'Generate a batch of PDF files',
-				description: 'Generate up to 50 PDFs in one request',
+				action: 'Create a submission batch',
+				description: 'Create up to 50 submissions in one request',
 			},
 			{
 				name: 'Get',
@@ -77,8 +77,8 @@ export const submissionBatchFields: INodeProperties[] = [
 					submissionTemplateVersionOption.description,
 			},
 			waitOption(
-				'Wait for PDFs',
-				'Whether to wait until every PDF has been generated. Turn it off to get the pending batch straight away.',
+				'Wait for Submissions',
+				'Whether to wait until every submission has been processed. Turn it off to get the pending batch straight away.',
 			),
 		],
 	},

@@ -76,7 +76,7 @@ describe('node description', () => {
 	});
 });
 
-describe('Submission: Generate PDF', () => {
+describe('Submission: Create', () => {
 	const params = (overrides = {}) => ({
 		resource: 'submission',
 		operation: 'generatePdf',

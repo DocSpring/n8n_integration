@@ -29,7 +29,13 @@ export const submissionOperations: INodeProperties[] = [
 				name: 'Check Data',
 				value: 'checkData',
 				action: 'Check data against a template',
-				description: "Check data against a template's fields without generating a PDF or using credits",
+				description: "Check data against a template's fields without making anything or using credits",
+			},
+			{
+				name: 'Create',
+				value: 'generatePdf',
+				action: 'Create a submission',
+				description: "Fill in a template with data and make a PDF, or a Word template's Word document or OpenDocument file",
 			},
 			{
 				name: 'Expire',
@@ -42,12 +48,6 @@ export const submissionOperations: INodeProperties[] = [
 				value: 'generateFiles',
 				action: 'Generate files for a submission',
 				description: "Add PNG images of a processed submission's pages, or a Word template submission's other files",
-			},
-			{
-				name: 'Generate PDF',
-				value: 'generatePdf',
-				action: 'Generate a PDF',
-				description: 'Fill in a template with data and generate a PDF',
 			},
 			{
 				name: 'Get',
@@ -72,7 +72,7 @@ const getMany = { resource: ['submission'], operation: ['getMany'] };
 const generateFiles = { resource: ['submission'], operation: ['generateFiles'] };
 
 export const submissionFields: INodeProperties[] = [
-	// ─── Generate PDF and Check Data ──────────────────────────────────────
+	// ─── Create and Check Data ────────────────────────────────────────────
 	templateLocator({ resource: ['submission'], operation: ['generatePdf', 'checkData'] }),
 	templateDataMapper(generatePdf, false),
 	templateDataMapper(checkData, true),
@@ -121,8 +121,8 @@ export const submissionFields: INodeProperties[] = [
 			},
 			submissionTemplateVersionOption,
 			waitOption(
-				'Wait for PDF',
-				'Whether to wait until the PDF has been generated. Turn it off to get the pending submission straight away.',
+				'Wait for Submission',
+				'Whether to wait until the submission has been processed. Turn it off to get the pending submission straight away.',
 			),
 		],
 	},
