@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.1
 
 - Submission → Generate PDF is now **Create**, and Submission Batch → Create's action is "Create a submission batch":
   a Word template's submission makes a Word document or an OpenDocument file as well as a PDF. Workflows that use them
