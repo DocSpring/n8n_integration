@@ -33,8 +33,8 @@ With API v2 but an older release, install version 1.0.0: this version's Signatur
 ## Operations
 
 - **Submission**
-  - **Generate PDF**: fill in a template with data and generate a PDF (and PNG page images if you ask for them). A
-    Word template can also make its Word document and an OpenDocument file (`files.docx`, `files.odt`).
+  - **Create**: fill in a template with data and make a submission: a PDF (and PNG page images if you ask for them),
+    or for a Word template its Word document and an OpenDocument file too (`files.docx`, `files.odt`).
   - **Check Data**: check data, and optionally signers, against a template's fields without generating anything or
     using credits.
   - **Get** a submission, or **Get Many** (by template, live or test, and creation date).
@@ -42,7 +42,7 @@ With API v2 but an older release, install version 1.0.0: this version's Signatur
     submission's PDF, Word document or OpenDocument file.
   - **Expire**: delete a submission's data and files now.
 - **Submission Batch**
-  - **Create**: generate up to 50 PDFs in one request (the submissions are a JSON array).
+  - **Create**: create up to 50 submissions in one request (the submissions are a JSON array).
   - **Get** a batch.
 - **Combined PDF**
   - **Combine PDFs**: merge submissions, combined PDFs, templates, custom files and URLs into one PDF.
@@ -63,18 +63,20 @@ With API v2 but an older release, install version 1.0.0: this version's Signatur
 
 ### Template data
 
-Generate PDF, Check Data and Create Signature Request show a field for each of the template's fields, from the
+Submission → Create, Check Data and Signature Request → Create show a field for each of the template's fields, from the
 template version you choose in **Options** (the latest published version by default). Date fields take dates as `YYYY-MM-DD`; their
 names show the format. Checkbox fields are **Leave Blank** (nothing is sent), **True** or **False**; they start blank,
 so a signer can tick a checkbox you didn't set. From an expression, give `true` or `false` (not text). Turn on
 **Attempt to convert types** in the field list if your other values arrive as text (such as `"42"` for a number
-field).
+field). A list or object field (a table's rows, for example) takes an expression that gives a list or object. Text in
+one, such as a typed `[{"description": "Widget"}]`, is refused unless **Attempt to convert types** is on, which reads
+it as JSON.
 
 ### Generating PDFs
 
 Operations that make a file wait until it's ready, then return the record with its files (the PDF's link is
-`files.pdf.download_url`). Turn off **Wait for PDF** in the options to get the record straight away, then use **Get**
-or the trigger. If DocSpring couldn't generate the PDF, the node fails with the reason and the submission's ID.
+`files.pdf.download_url`). Turn off its **Wait for** option (such as **Wait for Submission**) to get the record straight
+away, then use **Get** or the trigger. If DocSpring couldn't generate the PDF, the node fails with the reason and the submission's ID.
 
 ### Signature requests
 

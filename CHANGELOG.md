@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Submission → Generate PDF is now **Create**, and Submission Batch → Create's action is "Create a submission batch":
+  a Word template's submission makes a Word document or an OpenDocument file as well as a PDF. Workflows that use them
+  keep working: only the names changed. Their wait options are **Wait for Submission** and **Wait for Submissions**.
+- The README says how to send a list or object field: an expression, or text with **Attempt to convert types** on.
 - An error lists each problem once: the details the message already names no longer get a line of their own as well.
 
 ## 1.1.0
