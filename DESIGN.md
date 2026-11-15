@@ -189,5 +189,6 @@ labels, values and output. The PDF password option is labelled "Encrypt PDF With
 
 - `.github/workflows/publish.yml` publishes to npm with provenance on a `v*.*.*` tag (npm trusted publishing from
   GitHub Actions; n8n requires provenance for verified nodes, and the repo must be public).
-- n8n verified the node at 0.1.2. Each new version is submitted in n8n's Creator Portal (creators.n8n.io/nodes)
-  before n8n Cloud offers it.
+- n8n verified the node at 0.1.2. The Creator Portal (creators.n8n.io/nodes) detects each new npm version by itself
+  and reviews it (n8n says within 2 business days) before n8n Cloud offers it; the previous version stays live until
+  then. Nothing needs submitting (1.1.1, 15 Nov 2026).
